@@ -17,7 +17,7 @@
     margin: 0; height: 100%; overflow: hidden;
     background: var(--bg); color: var(--ink);
     font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", sans-serif;
-    touch-action: none; overscroll-behavior: none;
+    overscroll-behavior: none;
     -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
   }
   canvas { position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; }
@@ -40,7 +40,67 @@
   }
   #restart { right: 12px; }
   #mute { left: 10px; line-height: 0; }
-  #mute svg { width: 22px; height: 22px; }
+  #mute svg, #home svg { width: 22px; height: 22px; }
+  #home {
+    position: absolute; top: calc(env(safe-area-inset-top) + 14px); left: 46px;
+    border: 0; background: none; color: var(--sub); padding: 8px; line-height: 0;
+  }
+
+  /* 確認・名前入力のポップアップ */
+  #modal {
+    position: fixed; inset: 0; z-index: 20;
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+    background: rgba(31,31,31,.32);
+    opacity: 0; transition: opacity .18s; pointer-events: none;
+  }
+  #modal.show { opacity: 1; pointer-events: auto; }
+  #modalBox {
+    width: min(100%, 320px); padding: 22px 20px 16px; border-radius: 18px;
+    background: #fff; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,.12);
+  }
+  #modalTitle { font-size: 16px; font-weight: 700; }
+  #modalText { margin-top: 6px; font-size: 13px; color: var(--sub); line-height: 1.6; }
+  #modalText:empty { display: none; }
+  #modalInput {
+    display: block; width: 100%; margin-top: 14px; height: 46px; padding: 0 14px;
+    border: 1.5px solid var(--line); border-radius: 12px; background: var(--bg);
+    font: inherit; font-size: 16px; color: var(--ink); text-align: center;
+    -webkit-user-select: text; user-select: text; outline: none;
+  }
+  #modalInput:focus { border-color: var(--ink); }
+  #modalErr { min-height: 18px; margin-top: 6px; font-size: 12px; color: var(--red); }
+  #modalBtns { display: flex; gap: 8px; margin-top: 6px; }
+  #modalBtns .btn { flex: 1; min-width: 0; height: 46px; padding: 0 8px; font-size: 15px; letter-spacing: .04em; }
+
+  /* ランキング画面 */
+  #rankPanel {
+    position: fixed; inset: 0; z-index: 10; background: var(--bg);
+    display: flex; flex-direction: column;
+    padding: calc(env(safe-area-inset-top) + 14px) 0 env(safe-area-inset-bottom);
+  }
+  #rankHead { position: relative; text-align: center; font-size: 20px; font-weight: 700; padding: 6px 0 12px; }
+  #rankClose { position: absolute; right: 8px; top: -4px; border: 0; background: none; color: var(--sub); font: inherit; font-size: 13px; padding: 12px; }
+  .seg { display: flex; margin: 0 auto 8px; width: min(100% - 32px, 400px); padding: 3px; border-radius: 12px; background: rgba(0,0,0,.05); }
+  .seg button { flex: 1; height: 34px; border: 0; border-radius: 9px; background: none; font: inherit; font-size: 14px; color: var(--sub); }
+  .seg button.on { background: #fff; color: var(--ink); font-weight: 700; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  #rankList {
+    flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y;
+    width: min(100%, 440px); margin: 4px auto 0; padding: 0 16px 24px;
+  }
+  .row { display: flex; align-items: baseline; gap: 10px; padding: 11px 4px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+  .row .rk { width: 30px; text-align: right; font-weight: 700; color: var(--sub); }
+  .row.top .rk { color: var(--ink); }
+  .row .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+  .row .sc { font-weight: 700; font-size: 16px; }
+  .row .sc small { font-size: 12px; }
+  .row .sub { width: 52px; text-align: right; font-size: 12px; color: var(--sub); }
+  .row.me { background: rgba(179,54,42,.06); }
+  #rankMsg { padding: 40px 0; text-align: center; font-size: 13px; color: var(--sub); }
+
+  /* 結果画面のランキング登録 */
+  #regBtn { width: 100%; max-width: 440px; margin: 0 auto 10px; display: flex; height: 46px; font-size: 15px; }
+  #regDone { margin: 0 auto 10px; font-size: 13px; font-weight: 700; }
+  #regDone button { border: 0; background: none; font: inherit; font-size: 13px; color: var(--sub); text-decoration: underline; padding: 4px 6px; }
 
   .panel { bottom: 0; padding: 0 24px calc(env(safe-area-inset-bottom) + 22px); }
 
@@ -70,6 +130,7 @@
   #resultPanel.show { opacity: 1; }
   #scoreRow { display: flex; align-items: baseline; justify-content: center; gap: 4px; }
   #scoreNum { font-size: 52px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  #scoreNum .dec { font-size: 30px; font-weight: 700; }
   #scoreRow .unit { font-size: 16px; font-weight: 600; }
   #comment { font-size: 16px; font-weight: 700; margin-top: -2px; }
   #stats { margin: 10px 0 16px; font-size: 12px; color: var(--sub); font-variant-numeric: tabular-nums; }
@@ -77,12 +138,24 @@
   .btnRow { display: flex; gap: 10px; justify-content: center; max-width: 440px; margin: 0 auto; }
   .btnRow .btn { flex: 1; min-width: 0; padding: 0 12px; }
   #toTitle { margin-top: 4px; }
+  #rankOpen { margin-top: 6px; }
 
   /* プレイ画面のボタン（フリーモードは3つ並ぶ） */
   .playRow { display: flex; gap: 8px; justify-content: center; align-items: center; max-width: 440px; margin: 0 auto; }
   #undoBtn, #endBtn { display: none; width: 78px; min-width: 0; padding: 0; font-size: 15px; letter-spacing: .04em; }
   #playPanel.free #undoBtn, #playPanel.free #endBtn { display: inline-flex; }
   #playPanel.free #cutBtn { flex: 1; min-width: 0; }
+
+  /* 初回だけの操作ガイド */
+  #guide {
+    position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    padding: 14px 20px; border-radius: 14px;
+    background: rgba(31,31,31,.82); color: #fff;
+    font-size: 14px; line-height: 1.9; text-align: center; white-space: nowrap;
+    pointer-events: none; opacity: 0; transition: opacity .3s;
+  }
+  #guide.show { opacity: 1; }
+  #guide b { font-weight: 700; }
 </style>
 </head>
 <body>
@@ -96,6 +169,7 @@
   <div id="timer" class="hidden"><div id="timerFill"></div></div>
   <button id="restart" class="hidden">やり直す</button>
   <button id="mute" aria-label="音のオンオフ"></button>
+  <button id="home" class="hidden" aria-label="タイトルへ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-6.5 8 6.5"/><path d="M6.5 9.5V19h11V9.5"/></svg></button>
 </div>
 
 <div id="titlePanel" class="layer panel">
@@ -104,6 +178,7 @@
     <button class="btn ghost modeBtn" data-mode="timed"><span class="name">せっかち</span><span class="info" id="infoTimed"></span></button>
     <button class="btn ghost modeBtn" data-mode="free"><span class="name">フリー</span><span class="info" id="infoFree"></span></button>
   </div>
+  <button id="rankOpen" class="textBtn">ランキング</button>
 </div>
 
 <div id="playPanel" class="layer panel hidden">
@@ -118,11 +193,36 @@
   <div id="scoreRow"><span id="scoreNum">0</span><span class="unit">点</span></div>
   <div id="comment"></div>
   <div id="stats"></div>
+  <button id="regBtn" class="btn ghost">ランキングに登録</button>
+  <div id="regDone" class="hidden"></div>
   <div class="btnRow">
     <button id="againBtn" class="btn">もう一度</button>
-    <a id="shareBtn" class="btn ghost" href="#" target="_blank" rel="noopener">Xでシェア</a>
+    <button id="shareBtn" class="btn ghost">Xでシェア</button>
   </div>
   <button id="toTitle" class="textBtn">タイトルへ</button>
+</div>
+
+<div id="guide"></div>
+
+<div id="rankPanel" class="hidden">
+  <div id="rankHead">ランキング<button id="rankClose">閉じる</button></div>
+  <div class="seg" id="rankModes">
+    <button data-v="normal">じっくり</button><button data-v="timed">せっかち</button><button data-v="free">フリー</button>
+  </div>
+  <div class="seg" id="rankPeriods">
+    <button data-v="today">今日</button><button data-v="all">歴代</button>
+  </div>
+  <div id="rankList"></div>
+</div>
+
+<div id="modal">
+  <div id="modalBox">
+    <div id="modalTitle"></div>
+    <div id="modalText"></div>
+    <input id="modalInput" type="text" maxlength="20" autocomplete="nickname" enterkeyhint="done">
+    <div id="modalErr"></div>
+    <div id="modalBtns"><button id="modalNo" class="btn ghost"></button><button id="modalYes" class="btn"></button></div>
+  </div>
 </div>
 
 <script>
@@ -137,38 +237,53 @@
   const RED_DEV = 1;             // これより大きくずれたピースの%を赤字に
   const TURN_MS = 5000;          // せっかちモードの1ターンの時間
   const PARALLEL_DEG = 8;        // ほぼ平行とみなす角度差
-  const GAME_URL = 'https://claude.ai/artifact/BVa9H68EwMMu2VmAvXBAKa';
+  const COUNTDOWN_MS = 1500;     // せっかちモード開始時の「3・2・1」
+  const MAX_CUTS = 30;           // フリーモードで切れる回数の上限
+  // ランキング（Supabase）。publishable key は公開してよい鍵
+  const SB_URL = 'https://bxfgjfeaevvmafjfonce.supabase.co';
+  const SB_KEY = 'sb_publishable_t_cMjfdr6hU1OuSfSrbs0w_aZ8530Ak';
+  const NAME_MAX = 10;
+  // 名前のNGワード（ひらがな・小文字に直してから部分一致。サーバー側にも同じものがある）
+  const NG_WORDS = ['しね', 'ころす', 'ちんこ', 'ちんぽ', 'まんこ', 'せっくす', 'れいぷ', 'きちがい', 'がいじ',
+    'fuck', 'shit', 'sex', 'nigger', 'nigga', 'http', 'www'];
+  const GAME_URL = 'https://cazami.github.io/pizza6/';
   const IS_MOUSE = window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches;
+  // スマホは共有シート（ログイン済みのXアプリを選べる）、PCは投稿画面のURL
+  const USE_SHARE_SHEET = !IS_MOUSE && !!navigator.share;
   const MODES = {
     normal: { name: 'じっくり', info: '時間無制限' },
     timed:  { name: 'せっかち', info: '5秒ごとに自動カット' },
-    free:   { name: 'フリー', info: '何回でも切れる' },
+    free:   { name: 'フリー', info: '回数自由で6等分' },
   };
 
   // 点数ごとのコメント（上から順に判定）
   const SCORE_COMMENTS = [
     [100, '定規、隠し持ってる？'],
+    [99.9, '人間国宝になれる'],
     [99.5, 'ピザ屋が弟子入りを志願してきた'],
     [99, '誤差はチーズが伸びた分'],
+    [98.5, '前世はピザ屋さん'],
     [98, '職人の手つき'],
-    [97, '今すぐ窯の前に立てる'],
-    [96, '家族からの信頼が厚い'],
+    [97.5, '今すぐ窯の前に立てる'],
+    [97, '家族に切る係を任される'],
+    [96.5, 'これにはピザもニッコリ'],
+    [96, 'バイトなら即採用'],
     [95, '父さんな、これで食っていこうと思うんだ'],
-    [94, 'バイトなら即採用'],
-    [93, '誰も文句は言わない'],
-    [92, '1人だけ気づいてる'],
-    [91, '目を細めれば6等分'],
-    [90, 'ギリギリ平和が保たれた'],
-    [88, '選ぶ順番が大事になる'],
+    [94, '誰も文句は言わない'],
+    [93, '目を細めれば6等分'],
+    [92, '並べたら大きさの差がバレる'],
+    [91, 'ギリギリ平和が保たれた'],
+    [90, 'パーティーなら許される'],
+    [88, '早い者勝ちになる'],
     [86, '一番大きいのは自分用でしょ'],
-    [84, '兄弟げんかの火種'],
-    [82, '最後の1切れで揉める'],
-    [80, 'パーティーなら許される'],
-    [75, '目分量にも限度がある'],
-    [70, '切った人が最後に選ぶルールね'],
+    [84, '小さいのを引いた人が泣く'],
+    [82, '兄弟げんかの火種'],
+    [80, 'ピザ屋で出たらキレる'],
+    [75, '切った人は最後に選んでね'],
+    [70, '目分量にも限度がある'],
     [60, '6人いたら友情が壊れる'],
     [50, '包丁の持ち方から始めよう'],
-    [40, 'これは等分ではなく分配'],
+    [40, '等分ってなんだっけ'],
     [30, 'ピザに謝って'],
     [20, '何を目指して切った？'],
     [10, '斬新な切り方ですね'],
@@ -179,7 +294,7 @@
     4: 'それ、4等分です', 5: '1人分足りない', 7: '7人目は誰？',
   };
   const PARALLEL_COMMENT = 'ケーキも切れなさそう';
-  const PARALLEL_GOOD_COMMENT = '平行でもいける派';     // フリーで平行切りなのに90点以上
+  const PARALLEL_GOOD_COMMENT = '平行切りで六等分、その発想はなかった';  // フリーで平行切りなのに90点以上
   const HANJO_COMMENT = 'はんじょうさん…？';             // フリーで縁の1点から2本
   // フリーモードでピースが8個以上のとき（上から順に判定）
   const MANY_COMMENTS = [
@@ -207,7 +322,11 @@
     cutBtn: $('cutBtn'), againBtn: $('againBtn'), shareBtn: $('shareBtn'), toTitle: $('toTitle'),
     scoreNum: $('scoreNum'), comment: $('comment'), stats: $('stats'),
     infoNormal: $('infoNormal'), infoTimed: $('infoTimed'), infoFree: $('infoFree'),
-    undoBtn: $('undoBtn'), endBtn: $('endBtn'),
+    undoBtn: $('undoBtn'), endBtn: $('endBtn'), guide: $('guide'), home: $('home'),
+    rankOpen: $('rankOpen'), rankPanel: $('rankPanel'), rankClose: $('rankClose'), rankModes: $('rankModes'),
+    rankPeriods: $('rankPeriods'), rankList: $('rankList'), regBtn: $('regBtn'), regDone: $('regDone'),
+    modal: $('modal'), modalTitle: $('modalTitle'), modalText: $('modalText'), modalInput: $('modalInput'),
+    modalErr: $('modalErr'), modalYes: $('modalYes'), modalNo: $('modalNo'),
   };
 
   // ---------- 保存（この端末だけ） ----------
@@ -271,7 +390,8 @@
     fr.forEach((a, i) => { err += Math.abs(a - (i < 6 ? 1 / 6 : 0)); });
     for (let i = fr.length; i < 6; i++) err += 1 / 6;   // 6個未満なら足りない分も誤差
     const real = fr.filter(a => a >= CRUMB);
-    const score = Math.round(Math.max(0, 100 - err * 100) * 10) / 10;
+    // 小数第2位まで（公開後は変えない：ランキングの記録と比べられなくなるため）
+    const score = Math.round(Math.max(0, 100 - err * 100) * 100) / 100;
     return { score, count: real.length, spread: (real[0] - real[real.length - 1]) * 100 };
   }
   function allParallel(cs) {
@@ -480,6 +600,11 @@
       for (let i = 0; i < n; i++) tone('triangle', notes[i], notes[i], t + i * 0.09, 0.5, 0.16);
       if (tier === 0) tone('sine', 2093, 2093, t + n * 0.09, 0.8, 0.07);
     },
+    best() {
+      if (!ok()) return;
+      const t = ac.currentTime;
+      [1568, 2093, 2637].forEach((f, i) => tone('sine', f, f, t + i * 0.07, 0.35, 0.06));
+    },
   };
   const ICON_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11"/></svg>';
   const ICON_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>';
@@ -488,15 +613,19 @@
   // ---------- 状態 ----------
   const TOTAL = area(circlePoly(N_VERTS));
   let W = 0, H = 0, dpr = 1;
-  let mode = 'title';            // title / play / cutting / wait / result
-  let gameMode = 'normal';       // normal / timed
+  let mode = 'title';            // title / countdown / play / cutting / wait / result
+  let gameMode = 'normal';       // normal / timed / free
   let history = [];   // フリーモードの「戻す」用
   let pieces, cuts, whiffs, turn, line, startTime, endTime, result, turnStart = 0, lastTick = 0;
-  let cutAnim = null, explodeStart = 0, whiffAt = -1e9;
+  let cutAnim = null, splitAnim = null, explodeStart = 0, whiffAt = -1e9, countdownStart = 0;
+  let shareText = '', shareFile = null, scoreAnim = null;
+  let paused = false, pauseAt = 0;    // 確認ポップアップを出している間は時間を止める
+  let gameId = 0;                     // タイトルに戻ったら、待っていた処理を捨てる
+  let lastPlay = null;                // ランキングに送る、直前のプレイ
   let jitter = { x: 0, y: 0, s: 1 };       // 1ゲームごとのピザの位置・大きさのズレ
   const view = { cx: 0, cy: 0, R: 0 };
   const target = { cx: 0, cy: 0, R: 0 };
-  const isPlayLike = () => mode === 'play' || mode === 'cutting' || mode === 'wait';
+  const isPlayLike = () => mode === 'countdown' || mode === 'play' || mode === 'cutting' || mode === 'wait';
 
   function resetGame() {
     pieces = [circlePoly(N_VERTS)];
@@ -512,7 +641,7 @@
   // ---------- レイアウト ----------
   function layout() {
     const top = mode === 'title' ? 130 : 96;
-    const bottom = mode === 'title' ? 262 : mode === 'result' ? 280 : 120;
+    const bottom = mode === 'title' ? 300 : mode === 'result' ? 334 : 120;
     const avail = H - top - bottom;
     const play = isPlayLike();
     const below = play ? MAX_D + 0.04 : 1.12;
@@ -548,13 +677,15 @@
     });
     g.closePath();
   }
-  function drawPizzaPieces(g, cx, cy, R, explode, labels) {
+  // nudge: 切った直後に、切り口の両側をわずかに開く { n, d, amp }
+  function drawPizzaPieces(g, cx, cy, R, explode, labels, nudge) {
     const s = R / pizzaImgR;
     const half = pizzaImg.width / 2;
     if (explode <= 0) {
       g.save();
       g.shadowColor = 'rgba(60,40,20,.14)'; g.shadowBlur = R * 0.12; g.shadowOffsetY = R * 0.03;
-      g.fillStyle = '#E3B271';
+      // 切り口が開いている間は、すき間がまな板の色に見えるようにする
+      g.fillStyle = nudge ? '#E6DCCB' : '#E3B271';
       g.beginPath(); g.arc(cx, cy, R * 0.99, 0, Math.PI * 2); g.fill();
       g.restore();
     }
@@ -562,7 +693,13 @@
       const c = centroid(p);
       const len = Math.hypot(c[0], c[1]);
       const sc = Math.min(0.19, EXPLODE * 1.5 / Math.max(len, 1e-6)) * explode;
-      return { p, c, off: [c[0] * sc, c[1] * sc], a: area(p) / TOTAL };
+      const off = [c[0] * sc, c[1] * sc];
+      if (nudge) {
+        const side = Math.sign(c[0] * nudge.n[0] + c[1] * nudge.n[1] - nudge.d) || 1;
+        off[0] += nudge.n[0] * side * nudge.amp;
+        off[1] += nudge.n[1] * side * nudge.amp;
+      }
+      return { p, c, off, a: area(p) / TOTAL };
     });
     for (const it of infos) {
       const ox = it.off[0] * R, oy = it.off[1] * R;
@@ -655,13 +792,38 @@
       drawPizzaPieces(ctx, view.cx, view.cy, view.R, 0, false);
       ctx.restore();
     } else {
-      drawPizzaPieces(ctx, view.cx, view.cy, view.R, explode, labels);
+      let nudge = null;
+      if (splitAnim && mode !== 'result') {
+        const t = (now - splitAnim.t0) / 420;
+        if (t >= 1) splitAnim = null;
+        else nudge = { n: splitAnim.n, d: splitAnim.d, amp: 0.022 * Math.sin(Math.PI * t) * (1 - t * 0.4) };
+      }
+      drawPizzaPieces(ctx, view.cx, view.cy, view.R, explode, labels, nudge);
+    }
+
+    const tnow = paused ? pauseAt : now;
+    if (mode === 'countdown') {
+      const el = tnow - countdownStart;
+      const step = Math.floor(el / (COUNTDOWN_MS / 3));
+      const t = (el % (COUNTDOWN_MS / 3)) / (COUNTDOWN_MS / 3);
+      if (step !== lastTick) { lastTick = step; if (step < 3) sfx.tick(false); }
+      if (step < 3) {
+        ctx.save();
+        ctx.globalAlpha = 1 - t * t;
+        ctx.fillStyle = '#1F1F1F';
+        ctx.font = `800 ${Math.max(48, view.R * 0.5) * (1.15 - t * 0.15)}px -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(String(3 - step), view.cx, view.cy);
+        ctx.restore();
+      }
+      drawGuide(ctx, view.cx, view.cy, view.R, false);
+      if (el >= COUNTDOWN_MS) beginTurn();
     }
 
     // せっかちモードの残り時間
     let remain = Infinity;
     if (gameMode === 'timed' && mode === 'play') {
-      remain = TURN_MS - (now - turnStart);
+      remain = TURN_MS - (tnow - turnStart);
       const r = Math.max(0, remain / TURN_MS);
       ui.timerFill.style.transform = `scaleX(${r})`;
       ui.timerFill.style.background = remain < 1500 ? '#B3362A' : '#1F1F1F';
@@ -679,15 +841,37 @@
       const [a, b] = chordEnds(cutAnim.line);
       const R = view.R, cx = view.cx, cy = view.cy;
       const ex = a[0] + (b[0] - a[0]) * e, ey = a[1] + (b[1] - a[1]) * e;
+      // 刃の軌跡：先端の手前に、すっと消える光の帯
+      const e0 = Math.max(0, e - 0.28);
+      const sx = a[0] + (b[0] - a[0]) * e0, sy = a[1] + (b[1] - a[1]) * e0;
       ctx.save();
-      ctx.strokeStyle = '#1F1F1F'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+      ctx.lineCap = 'round';
+      const gr = ctx.createLinearGradient(cx + sx * R, cy + sy * R, cx + ex * R, cy + ey * R);
+      gr.addColorStop(0, 'rgba(255,255,255,0)');
+      gr.addColorStop(1, 'rgba(255,255,255,.85)');
+      ctx.strokeStyle = gr; ctx.lineWidth = 9;
+      ctx.beginPath(); ctx.moveTo(cx + sx * R, cy + sy * R); ctx.lineTo(cx + ex * R, cy + ey * R); ctx.stroke();
+      ctx.strokeStyle = '#1F1F1F'; ctx.lineWidth = 2.5;
       ctx.beginPath(); ctx.moveTo(cx + a[0] * R, cy + a[1] * R); ctx.lineTo(cx + ex * R, cy + ey * R); ctx.stroke();
       ctx.fillStyle = '#1F1F1F';
       ctx.beginPath(); ctx.arc(cx + ex * R, cy + ey * R, 4, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
       if (t >= 1) finishCut();
     }
+
+    // 結果の点数をカウントアップ
+    if (scoreAnim) {
+      const t = Math.min(1, Math.max(0, (now - scoreAnim.t0) / 750));
+      const e = 1 - Math.pow(1 - t, 3);
+      ui.scoreNum.innerHTML = scoreHTML(scoreAnim.to * e);
+      if (t >= 1) scoreAnim = null;
+    }
     requestAnimationFrame(frame);
+  }
+  function scoreHTML(v) {
+    const s = v.toFixed(2);
+    const i = s.indexOf('.');
+    return `${s.slice(0, i)}<span class="dec">${s.slice(i)}</span>`;
   }
 
   // ---------- 操作 ----------
@@ -708,9 +892,12 @@
     const n2 = normalOf(line.th);
     line.d = clampD(q[0] * n2[0] + q[1] * n2[1]);
   }
-  function applyMove(id, nx, ny) {
+  // 精密操作：ゆっくり動かしたときは動きを小さくする（速く動かせば等倍）
+  const lerp = (a, b, t) => a + (b - a) * Math.max(0, Math.min(1, t));
+  function applyMove(id, nx, ny, ts) {
     const prev = ptrs.get(id);
     if (!prev) return;
+    const dt = Math.max(1, Math.min(100, ts - prev.t));
     if (ptrs.size >= 2) {
       let o = null;
       for (const [k, v] of ptrs) if (k !== id) { o = v; break; }
@@ -718,29 +905,36 @@
       const m1 = [(nx + o.x) / 2, (ny + o.y) / 2];
       const a0 = Math.atan2(prev.y - o.y, prev.x - o.x);
       const a1 = Math.atan2(ny - o.y, nx - o.x);
-      rigid(m0, m1, wrapAngle(a1 - a0));
+      const dth = wrapAngle(a1 - a0);
+      // 回転の速さ（rad/ms）でゲインを決める
+      prev.g = lerp(prev.g, lerp(0.4, 1, (Math.abs(dth) / dt - 0.0004) / 0.003), 0.35);
+      rigid(m0, m1, dth * prev.g);
     } else {
       const n = normalOf(line.th);
-      const dd = ((nx - prev.x) * n[0] + (ny - prev.y) * n[1]) / view.R;
-      line.d = clampD(line.d + dd);
+      const dpx = (nx - prev.x) * n[0] + (ny - prev.y) * n[1];
+      // 移動の速さ（px/ms）でゲインを決める
+      prev.g = lerp(prev.g, lerp(0.35, 1, (Math.abs(dpx) / dt - 0.05) / 0.55), 0.35);
+      line.d = clampD(line.d + dpx * prev.g / view.R);
     }
-    prev.x = nx; prev.y = ny;
+    prev.x = nx; prev.y = ny; prev.t = ts;
     updateCutBtn();
   }
 
   cv.addEventListener('pointerdown', e => {
     if (mode !== 'play') return;
-    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, t: e.timeStamp, g: 1 });
     try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+    hideGuide();
   });
   cv.addEventListener('pointermove', e => {
     if (mode !== 'play' || !ptrs.has(e.pointerId)) return;
     e.preventDefault();
-    applyMove(e.pointerId, e.clientX, e.clientY);
+    applyMove(e.pointerId, e.clientX, e.clientY, e.timeStamp);
   });
   cv.addEventListener('wheel', e => {
     if (mode !== 'play') return;
     e.preventDefault();
+    hideGuide();
     const dy = Math.max(-60, Math.min(60, e.deltaY));
     // カーソルから線に下ろした足を軸に回す
     const n = normalOf(line.th);
@@ -753,12 +947,15 @@
   cv.addEventListener('pointerup', up);
   cv.addEventListener('pointercancel', up);
   cv.addEventListener('lostpointercapture', up);
-  document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+  document.addEventListener('touchmove', e => {
+    if (!(e.target.closest && e.target.closest('#rankList'))) e.preventDefault();
+  }, { passive: false });
   document.addEventListener('gesturestart', e => e.preventDefault());
   document.addEventListener('dblclick', e => e.preventDefault());
 
   function updateCutBtn() {
-    ui.cutBtn.disabled = !(mode === 'play' && crosses(line.d));
+    const capped = gameMode === 'free' && cuts && cuts.length >= MAX_CUTS;
+    ui.cutBtn.disabled = !(mode === 'play' && crosses(line.d) && !capped);
     ui.undoBtn.disabled = !(mode === 'play' && cuts && cuts.length > 0);
     ui.endBtn.disabled = !(mode === 'play' && cuts && cuts.length > 0);
   }
@@ -774,29 +971,52 @@
     ui.hint.classList.toggle('hidden', !isPlay);
     ui.timer.classList.toggle('hidden', !(isPlay && gameMode === 'timed'));
     ui.restart.classList.toggle('hidden', !isPlay);
+    ui.home.classList.toggle('hidden', !isPlay);
     ui.playPanel.classList.toggle('hidden', !isPlay);
     ui.resultPanel.classList.toggle('hidden', !isResult);
     if (!isResult) ui.resultPanel.classList.remove('show');
     ui.playPanel.classList.toggle('free', gameMode === 'free');
     if (isPlay) {
       ui.turnLabel.innerHTML = gameMode === 'free'
-        ? `${cuts.length + 1}回目`
+        ? (cuts.length >= MAX_CUTS ? `上限<span class="of">${MAX_CUTS}回</span>` : `${cuts.length + 1}回目<span class="of">/ ${MAX_CUTS}</span>`)
         : `${turn}ターン目<span class="of">/ 3</span>`;
     }
     if (isResult) ui.turnLabel.textContent = '結果';
     if (isTitle) renderTitleInfo();
+    if (m === 'play') maybeShowGuide(); else if (m !== 'cutting') hideGuide(true);
     layout();
     updateCutBtn();
   }
   function renderTitleInfo() {
     for (const [m, el] of [['normal', ui.infoNormal], ['timed', ui.infoTimed], ['free', ui.infoFree]]) {
       const b = getBest(m);
-      el.textContent = MODES[m].info + (b !== null ? `　ベスト ${b.toFixed(1)}点` : '');
+      el.textContent = MODES[m].info + (b !== null ? `　ベスト ${b.toFixed(2)}点` : '');
     }
   }
 
+  // ---------- 初回だけの操作ガイド ----------
+  let guideOn = false;
+  function maybeShowGuide() {
+    if (guideOn || store.get('guided') === '1') return;
+    guideOn = true;
+    ui.guide.innerHTML = IS_MOUSE
+      ? '<b>ドラッグ</b>で線を動かす<br><b>ホイール</b>で線を回す<br>ピザに重ねて「切る」'
+      : '<b>1本指</b>で線を動かす<br><b>2本指</b>で動かす・回す<br>ピザに重ねて「切る」';
+    ui.guide.classList.add('show');
+  }
+  // 操作したら消して、次からは出さない（force: 画面が変わったので消すだけ）
+  function hideGuide(force) {
+    if (!guideOn) return;
+    guideOn = false;
+    ui.guide.classList.remove('show');
+    if (!force) store.set('guided', '1');
+  }
+
+  function later(fn, ms) { const id = gameId; setTimeout(() => { if (id === gameId) fn(); }, ms); }
   function startGame(m) {
     if (m) gameMode = m;
+    gameId++;
+    paused = false;
     ensureAudio();
     sfx.tap();
     // 毎回、模様・位置・大きさ・背景の柄をランダムに
@@ -807,20 +1027,33 @@
     bgOff = [Math.random() * cell * 2, Math.random() * cell * 2];
     resetGame();
     ptrs.clear();
+    splitAnim = null; scoreAnim = null;
+    ui.timerFill.style.transform = 'scaleX(1)';
+    ui.timerFill.style.background = '#1F1F1F';
+    if (gameMode === 'timed') {
+      // 「3・2・1」の間は操作できない。時間はカウント後から計る
+      countdownStart = performance.now();
+      lastTick = -1;
+      setMode('countdown');
+      return;
+    }
     startTime = performance.now();
     beginTurn();
   }
   function beginTurn() {
+    if (mode === 'countdown') startTime = performance.now();
     turnStart = performance.now();
     lastTick = 0;
     setMode('play');
   }
 
+  const vibrate = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (_) {} };
   function doCut() {
     if (mode !== 'play' || !crosses(line.d)) return;
+    if (gameMode === 'free' && cuts.length >= MAX_CUTS) return;
     cutAnim = { line: { ...line }, t0: performance.now() };
     ptrs.clear();
-    try { navigator.vibrate && navigator.vibrate(12); } catch (_) {}
+    vibrate(8);
     sfx.cut();
     setMode('cutting');
   }
@@ -834,7 +1067,7 @@
     sfx.whiff();
     mode = 'wait';
     ui.cutBtn.disabled = true;
-    setTimeout(afterTurn, 650);
+    later(afterTurn, 650);
   }
   function finishCut() {
     const ln = cutAnim.line;
@@ -845,6 +1078,9 @@
     for (const p of pieces) next.push(...split(p, n, ln.d));
     pieces = next;
     cuts.push(ln);
+    // 刃が抜けた瞬間：切り口がわずかに開いて戻る＋短い振動
+    splitAnim = { n, d: ln.d, t0: performance.now() };
+    vibrate(18);
     afterTurn();
   }
   function afterTurn() {
@@ -853,7 +1089,7 @@
       endTime = performance.now();
       mode = 'wait';
       ui.cutBtn.disabled = true;
-      setTimeout(showResult, 350);
+      later(showResult, 350);
       return;
     }
     turn++;
@@ -867,27 +1103,276 @@
     const sec = (endTime - startTime) / 1000;
     const prevBest = getBest(gameMode);
     const prevCuts = parseInt(store.get('bestcuts-' + gameMode) || '999', 10);
-    // 同点なら切った回数が少ない方を上に（フリーモード用）
-    const isBest = prevBest === null || result.score > prevBest ||
-      (gameMode === 'free' && result.score === prevBest && cuts.length < prevCuts);
-    if (isBest) { store.set('best-' + gameMode, String(result.score)); store.set('bestcuts-' + gameMode, String(cuts.length)); }
+    const prevTime = parseFloat(store.get('besttime-' + gameMode) || 'Infinity');
+    // 同点なら、フリーは切った回数が少ない方、じっくり・せっかちは時間が短い方を上に
+    const tieWin = gameMode === 'free' ? cuts.length < prevCuts : sec < prevTime;
+    const isBest = prevBest === null || result.score > prevBest || (result.score === prevBest && tieWin);
+    if (isBest) {
+      store.set('best-' + gameMode, String(result.score));
+      store.set('bestcuts-' + gameMode, String(cuts.length));
+      store.set('besttime-' + gameMode, String(sec));
+    }
 
-    ui.scoreNum.textContent = result.score.toFixed(1);
+    lastPlay = {
+      mode: gameMode, lines: cuts.map(c => [c.th, c.d]), whiffs, timeMs: Math.round(sec * 1000),
+      score: result.score, registered: false,
+    };
+    ui.regBtn.classList.remove('hidden');
+    ui.regDone.classList.add('hidden');
+    ui.scoreNum.innerHTML = scoreHTML(0);
     ui.comment.textContent = comment;
+    const spread = result.count > 1 ? [`最大と最小の差 ${result.spread.toFixed(1)}%`] : [];
     const parts = gameMode === 'free'
-      ? [`${cuts.length}回で切った`, `ピース ${result.count}個`, `最大と最小の差 ${result.spread.toFixed(1)}%`]
-      : [`ピース ${result.count}個`, `最大と最小の差 ${result.spread.toFixed(1)}%`, `${sec.toFixed(1)}秒`];
-    ui.stats.innerHTML = parts.join('　・　') + (isBest && prevBest !== null ? '<br><span class="best">自己ベスト更新</span>' : '');
+      ? [`${cuts.length}回で切った`, `ピース ${result.count}個`, ...spread]
+      : [`ピース ${result.count}個`, ...spread, `${sec.toFixed(1)}秒`];
+    let bestLine = '';
+    if (isBest && prevBest !== null) {
+      const diff = result.score - prevBest;
+      bestLine = `<br><span class="best">自己ベスト更新${diff > 0 ? `（+${diff.toFixed(2)}）` : ''}</span>`;
+    }
+    ui.stats.innerHTML = parts.join('　・　') + bestLine;
     const modeLabel = gameMode === 'free' ? `フリー・${cuts.length}回` : MODES[gameMode].name;
-    const text = `🍕 ピザ六等分（${modeLabel}）${result.score.toFixed(1)}点\n「${comment}」\n#ピザ六等分\n${GAME_URL}`;
-    ui.shareBtn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text);
+    shareText = `🍕 ピザ六等分（${modeLabel}）${result.score.toFixed(2)}点\n「${comment}」\n#ピザ六等分\n${GAME_URL}`;
+    shareFile = null;
+    makeShareImage(result, comment, modeLabel);
 
     setMode('result');
     explodeStart = performance.now();
     sfx.split();
     const tier = SOUND_TIERS.findIndex(t => result.score >= t);
     setTimeout(() => sfx.score(tier), 520);
+    if (isBest && prevBest !== null) setTimeout(() => sfx.best(), 1250);
     setTimeout(() => ui.resultPanel.classList.add('show'), 450);
+    scoreAnim = { to: result.score, t0: performance.now() + 450 };
+  }
+
+  // ---------- ポップアップ ----------
+  // opts: { title, text, input(初期値。null なら入力欄なし), yes, no, onYes(値) → false なら閉じない, onNo }
+  let modalOpts = null, modalBusy = false;
+  function showModal(opts) {
+    modalOpts = opts; modalBusy = false;
+    ui.modalTitle.textContent = opts.title;
+    ui.modalText.textContent = opts.text || '';
+    ui.modalErr.textContent = '';
+    ui.modalInput.classList.toggle('hidden', opts.input == null);
+    ui.modalErr.classList.toggle('hidden', opts.input == null);
+    ui.modalInput.value = opts.input || '';
+    ui.modalYes.textContent = opts.yes;
+    ui.modalNo.textContent = opts.no;
+    ui.modalYes.disabled = ui.modalNo.disabled = false;
+    ui.modal.classList.add('show');
+    if (opts.input != null) setTimeout(() => ui.modalInput.focus(), 50);
+  }
+  function closeModal() {
+    ui.modal.classList.remove('show');
+    ui.modalInput.blur();
+    modalOpts = null;
+  }
+  async function modalYes() {
+    if (!modalOpts || modalBusy) return;
+    const o = modalOpts;
+    modalBusy = true; ui.modalYes.disabled = ui.modalNo.disabled = true;
+    let r;
+    try { r = await o.onYes(ui.modalInput.value); } catch (_) { r = false; }
+    modalBusy = false; ui.modalYes.disabled = ui.modalNo.disabled = false;
+    if (r !== false && modalOpts === o) closeModal();
+  }
+  function modalNo() {
+    if (!modalOpts || modalBusy) return;
+    const o = modalOpts;
+    closeModal();
+    o.onNo && o.onNo();
+  }
+  ui.modalYes.addEventListener('click', modalYes);
+  ui.modalNo.addEventListener('click', modalNo);
+  ui.modalInput.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); modalYes(); } });
+  ui.modalInput.addEventListener('input', () => { ui.modalErr.textContent = ''; });
+
+  // ---------- プレイ中にタイトルへ ----------
+  function pause() { if (!paused) { paused = true; pauseAt = performance.now(); ptrs.clear(); } }
+  function resume() {
+    if (!paused) return;
+    const now = performance.now(), delta = now - pauseAt;
+    paused = false;
+    countdownStart += delta;
+    startTime += delta;
+    // 止めている間に次のターンが始まっていたら、そこから計り直す
+    turnStart = turnStart <= pauseAt ? turnStart + delta : now;
+  }
+  function askToTitle() {
+    if (!isPlayLike()) return;
+    sfx.tap();
+    pause();
+    showModal({
+      title: 'タイトルに戻りますか？', text: '今のプレイは記録されません',
+      yes: '戻る', no: '続ける',
+      onYes: () => { toTitle(); },
+      onNo: () => resume(),
+    });
+  }
+
+  // ---------- ランキング ----------
+  const rank = { mode: 'normal', period: 'today', myId: null, seq: 0 };
+  // 名前を整える（全角英数→半角、制御文字を除く、空白をまとめる）
+  function cleanName(s) {
+    return s.normalize('NFKC').replace(/[\u0000-\u001f\u007f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/g, '')
+      .replace(/\s+/g, ' ').trim();
+  }
+  function nameError(n) {
+    const len = [...n].length;
+    if (!len) return '名前を入れてください';
+    if (len > NAME_MAX) return `${NAME_MAX}文字までにしてください`;
+    const k = n.toLowerCase().replace(/[\s._\-・]/g, '')
+      .replace(/[\u30a1-\u30f6]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
+    if (NG_WORDS.some(w => k.includes(w))) return 'その名前は使えません';
+    return '';
+  }
+  // 日本時間の今日0時（UTC の ISO 文字列）
+  function jstDayStartISO() {
+    const d = new Date(Date.now() + 9 * 3600e3);
+    d.setUTCHours(0, 0, 0, 0);
+    return new Date(d.getTime() - 9 * 3600e3).toISOString();
+  }
+  function openRank(m, period) {
+    rank.mode = m; rank.period = period;
+    ui.rankPanel.classList.remove('hidden');
+    ui.rankList.scrollTop = 0;
+    loadRank();
+  }
+  function closeRank() {
+    sfx.tap();
+    ui.rankPanel.classList.add('hidden');
+  }
+  function rankMsg(t) { ui.rankList.innerHTML = ''; const d = document.createElement('div'); d.id = 'rankMsg'; d.textContent = t; ui.rankList.appendChild(d); }
+  async function loadRank() {
+    for (const b of ui.rankModes.children) b.classList.toggle('on', b.dataset.v === rank.mode);
+    for (const b of ui.rankPeriods.children) b.classList.toggle('on', b.dataset.v === rank.period);
+    const seq = ++rank.seq, m = rank.mode;
+    rankMsg('読み込み中…');
+    const order = m === 'free' ? 'score.desc,cuts.asc,created_at.asc' : 'score.desc,time_ms.asc,created_at.asc';
+    let q = `${SB_URL}/rest/v1/scores?select=id,name,score,cuts,time_ms&mode=eq.${m}&order=${order}&limit=100`;
+    if (rank.period === 'today') q += '&created_at=gte.' + encodeURIComponent(jstDayStartISO());
+    let rows;
+    try {
+      const r = await fetch(q, { headers: { apikey: SB_KEY } });
+      if (!r.ok) throw new Error(r.status);
+      rows = await r.json();
+    } catch (_) {
+      if (seq === rank.seq) rankMsg('読み込めませんでした。時間をおいて試してください');
+      return;
+    }
+    if (seq !== rank.seq) return;
+    if (!rows.length) { rankMsg(rank.period === 'today' ? '今日の記録はまだありません' : 'まだ記録がありません'); return; }
+    ui.rankList.innerHTML = '';
+    rows.forEach((row, i) => {
+      const el = document.createElement('div');
+      el.className = 'row' + (i < 3 ? ' top' : '') + (row.id === rank.myId ? ' me' : '');
+      const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = i + 1;
+      const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = row.name;
+      const sc = document.createElement('span'); sc.className = 'sc';
+      const s = Number(row.score).toFixed(2), dot = s.indexOf('.');
+      sc.textContent = s.slice(0, dot);
+      const small = document.createElement('small'); small.textContent = s.slice(dot); sc.appendChild(small);
+      const sub = document.createElement('span'); sub.className = 'sub';
+      sub.textContent = m === 'free' ? `${row.cuts}回` : `${(row.time_ms / 1000).toFixed(1)}秒`;
+      el.append(rk, nm, sc, sub);
+      ui.rankList.appendChild(el);
+    });
+  }
+  function askRegister() {
+    if (!lastPlay || lastPlay.registered) return;
+    sfx.tap();
+    const lp = lastPlay;
+    showModal({
+      title: 'ランキングに登録',
+      text: `${MODES[lp.mode].name}　${lp.score.toFixed(2)}点　（名前は${NAME_MAX}文字まで）`,
+      input: store.get('name') || '',
+      yes: '登録', no: 'やめる',
+      onYes: async raw => {
+        const name = cleanName(raw);
+        const err = nameError(name);
+        if (err) { ui.modalErr.textContent = err; return false; }
+        let res;
+        try {
+          const r = await fetch(`${SB_URL}/functions/v1/submit`, {
+            method: 'POST',
+            headers: { apikey: SB_KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mode: lp.mode, name, lines: lp.lines, whiffs: lp.whiffs, timeMs: lp.timeMs }),
+          });
+          res = await r.json().catch(() => ({}));
+          if (!r.ok) { ui.modalErr.textContent = res.error || '登録できませんでした'; return false; }
+        } catch (_) {
+          ui.modalErr.textContent = '通信できませんでした。時間をおいて試してください';
+          return false;
+        }
+        store.set('name', name);
+        lp.registered = true;
+        rank.myId = res.id;
+        if (lastPlay === lp) showRegistered(res);
+        return true;
+      },
+    });
+  }
+  function showRegistered(res) {
+    ui.regBtn.classList.add('hidden');
+    ui.regDone.classList.remove('hidden');
+    ui.regDone.textContent = res.pending
+      ? '登録しました（確認後に表示されます）'
+      : `登録しました　歴代 ${res.rankAll}位・今日 ${res.rankToday}位`;
+    const b = document.createElement('button');
+    b.textContent = '見る';
+    b.addEventListener('click', () => { sfx.tap(); openRank(lastPlay.mode, 'today'); });
+    ui.regDone.appendChild(b);
+  }
+
+  // ---------- シェア ----------
+  // 結果の画像（1080×1080）。ロゴとURLを小さく入れる
+  function makeShareImage(res, comment, modeLabel) {
+    try {
+      const S = 1080;
+      const c = document.createElement('canvas');
+      c.width = c.height = S;
+      const g = c.getContext('2d');
+      g.fillStyle = '#FAF7F2'; g.fillRect(0, 0, S, S);
+      g.fillStyle = 'rgba(205,185,155,.16)';
+      for (let i = 0; i < S; i += 64) { g.fillRect(i, 0, 32, S); g.fillRect(0, i, S, 32); }
+      const font = w => `${w} -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif`;
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillStyle = '#8A847C'; g.font = font('600 34px');
+      g.fillText(modeLabel, S / 2, 78);
+      drawPizzaPieces(g, S / 2, 440, 290, 1, true, null);
+      const s = res.score.toFixed(2), dot = s.indexOf('.');
+      const big = s.slice(0, dot), small = s.slice(dot) + '点';
+      g.fillStyle = '#1F1F1F';
+      g.font = font('800 120px'); const wb = g.measureText(big).width;
+      g.font = font('700 64px'); const ws = g.measureText(small).width;
+      const x0 = S / 2 - (wb + ws) / 2;
+      g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+      g.font = font('800 120px'); g.fillText(big, x0, 880);
+      g.font = font('700 64px'); g.fillText(small, x0 + wb, 880);
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.font = font('700 44px');
+      g.fillText(`「${comment}」`, S / 2, 950, S - 120);
+      g.fillStyle = '#8A847C'; g.font = font('600 26px');
+      g.fillText('ピザ六等分　cazami.github.io/pizza6', S / 2, 1035);
+      c.toBlob(b => {
+        if (!b || mode !== 'result') return;
+        try { shareFile = new File([b], 'pizza6.png', { type: 'image/png' }); } catch (_) {}
+      }, 'image/png');
+    } catch (_) {}
+  }
+  async function share() {
+    sfx.tap();
+    if (USE_SHARE_SHEET) {
+      const data = { text: shareText };
+      if (shareFile && navigator.canShare && navigator.canShare({ files: [shareFile], text: shareText })) data.files = [shareFile];
+      try { await navigator.share(data); return; }
+      catch (e) {
+        if (e && e.name === 'AbortError') return;   // 共有シートを閉じただけ
+        if (data.files) { try { await navigator.share({ text: shareText }); return; } catch (e2) { if (e2 && e2.name === 'AbortError') return; } }
+      }
+    }
+    window.open('https://x.com/intent/post?text=' + encodeURIComponent(shareText), '_blank', 'noopener');
   }
 
   function undo() {
@@ -904,10 +1389,12 @@
     mode = 'wait';
     updateCutBtn();
     sfx.tap();
-    setTimeout(showResult, 200);
+    later(showResult, 200);
   }
 
   function toTitle() {
+    gameId++;
+    paused = false;
     sfx.tap();
     resetGame();
     jitter = { x: 0, y: 0, s: 1 };
@@ -921,6 +1408,20 @@
   ui.againBtn.addEventListener('click', () => startGame());
   ui.restart.addEventListener('click', () => startGame());
   ui.toTitle.addEventListener('click', toTitle);
+  ui.shareBtn.addEventListener('click', share);
+  ui.home.addEventListener('click', askToTitle);
+  ui.rankOpen.addEventListener('click', () => { sfx.tap(); openRank('normal', 'today'); });
+  ui.rankClose.addEventListener('click', closeRank);
+  ui.regBtn.addEventListener('click', askRegister);
+  for (const [box, key] of [[ui.rankModes, 'mode'], [ui.rankPeriods, 'period']]) {
+    box.addEventListener('click', e => {
+      const b = e.target.closest('button');
+      if (!b || rank[key] === b.dataset.v) return;
+      rank[key] = b.dataset.v;
+      loadRank();
+    });
+  }
+  if (USE_SHARE_SHEET) ui.shareBtn.textContent = 'シェア';
   ui.mute.addEventListener('click', () => {
     muted = !muted;
     store.set('muted', muted ? '1' : '0');
@@ -935,6 +1436,8 @@
     get state() { return { mode, gameMode, turn, line, pieces, cuts, whiffs, jitter, view: { ...target } }; },
     setLine(th, d) { line.th = th; line.d = d; updateCutBtn(); },
     commentFor, evaluate, isHanjo, SCORE_COMMENTS,
+    get shareText() { return shareText; },
+    get shareFile() { return shareFile; },
   };
 
   resetGame();
