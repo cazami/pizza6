@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>ピザ六等分</title>
+<style>
+  :root {
+    --bg: #FAF8F5;
+    --ink: #1F1F1F;
+    --sub: #8A847C;
+    --line: #E5E0D8;
+    --red: #B3362A;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", sans-serif;
+    touch-action: none; overscroll-behavior: none;
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; }
+
+  .layer { position: fixed; left: 0; right: 0; pointer-events: none; text-align: center; }
+  .layer button, .layer a { pointer-events: auto; }
+  .hidden { display: none !important; }
+
+  #top { top: 0; padding: calc(env(safe-area-inset-top) + 18px) 20px 0; }
+  #logo { font-size: 34px; font-weight: 800; letter-spacing: .08em; padding-top: 22px; }
+  #logoSub { margin-top: 6px; font-size: 13px; color: var(--sub); letter-spacing: .04em; }
+  #turnLabel { font-size: 22px; font-weight: 700; letter-spacing: .02em; }
+  #turnLabel .of { font-size: 14px; font-weight: 500; color: var(--sub); margin-left: 4px; }
+  #hint { margin-top: 6px; font-size: 12px; color: var(--sub); }
+  #timer { width: 150px; height: 4px; margin: 10px auto 0; border-radius: 2px; background: rgba(0,0,0,.08); overflow: hidden; }
+  #timerFill { height: 100%; width: 100%; background: var(--ink); border-radius: 2px; transform-origin: left center; }
+  #restart, #mute {
+    position: absolute; top: calc(env(safe-area-inset-top) + 14px);
+    border: 0; background: none; color: var(--sub); font: inherit; font-size: 13px; padding: 8px;
+  }
+  #restart { right: 12px; }
+  #mute { left: 10px; line-height: 0; }
+  #mute svg { width: 22px; height: 22px; }
+
+  .panel { bottom: 0; padding: 0 24px calc(env(safe-area-inset-bottom) + 22px); }
+
+  .btn {
+    display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 54px; min-width: min(64%, 360px); padding: 0 28px;
+    border-radius: 27px; border: 0;
+    background: var(--ink); color: #fff;
+    font: inherit; font-size: 17px; font-weight: 700; letter-spacing: .08em;
+    text-decoration: none;
+    transition: opacity .15s, transform .1s;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn:disabled { opacity: .22; }
+  .btn.ghost { background: rgba(255,255,255,.78); color: var(--ink); border: 1.5px solid var(--line); }
+  .textBtn { border: 0; background: none; font: inherit; font-size: 13px; color: var(--sub); padding: 10px 14px; }
+
+  /* タイトル */
+  #titlePanel .lead { margin: 0 0 16px; font-size: 14px; }
+  .modes { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+  .modeBtn { height: 62px; width: min(78%, 340px); }
+  .modeBtn .name { font-size: 17px; font-weight: 700; letter-spacing: .1em; }
+  .modeBtn .info { white-space: nowrap; margin-top: 3px; font-size: 11px; font-weight: 500; letter-spacing: .02em; opacity: .7; }
+
+  /* 結果 */
+  #resultPanel { opacity: 0; transition: opacity .4s; }
+  #resultPanel.show { opacity: 1; }
+  #scoreRow { display: flex; align-items: baseline; justify-content: center; gap: 4px; }
+  #scoreNum { font-size: 52px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  #scoreRow .unit { font-size: 16px; font-weight: 600; }
+  #comment { font-size: 16px; font-weight: 700; margin-top: -2px; }
+  #stats { margin: 10px 0 16px; font-size: 12px; color: var(--sub); font-variant-numeric: tabular-nums; }
+  #stats .best { color: var(--red); font-weight: 700; }
+  .btnRow { display: flex; gap: 10px; justify-content: center; max-width: 440px; margin: 0 auto; }
+  .btnRow .btn { flex: 1; min-width: 0; padding: 0 12px; }
+  #toTitle { margin-top: 4px; }
+
+  /* プレイ画面のボタン（フリーモードは3つ並ぶ） */
+  .playRow { display: flex; gap: 8px; justify-content: center; align-items: center; max-width: 440px; margin: 0 auto; }
+  #undoBtn, #endBtn { display: none; width: 78px; min-width: 0; padding: 0; font-size: 15px; letter-spacing: .04em; }
+  #playPanel.free #undoBtn, #playPanel.free #endBtn { display: inline-flex; }
+  #playPanel.free #cutBtn { flex: 1; min-width: 0; }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div id="top" class="layer">
+  <div id="logo">ピザ六等分</div>
+  <div id="logoSub">ピザをなるべく正確に6等分しよう</div>
+  <div id="turnLabel" class="hidden"></div>
+  <div id="hint" class="hidden">2本指で動かす・回す　1本指で平行移動</div>
+  <div id="timer" class="hidden"><div id="timerFill"></div></div>
+  <button id="restart" class="hidden">やり直す</button>
+  <button id="mute" aria-label="音のオンオフ"></button>
+</div>
+
+<div id="titlePanel" class="layer panel">
+  <div class="modes">
+    <button class="btn modeBtn" data-mode="normal"><span class="name">じっくり</span><span class="info" id="infoNormal"></span></button>
+    <button class="btn ghost modeBtn" data-mode="timed"><span class="name">せっかち</span><span class="info" id="infoTimed"></span></button>
+    <button class="btn ghost modeBtn" data-mode="free"><span class="name">フリー</span><span class="info" id="infoFree"></span></button>
+  </div>
+</div>
+
+<div id="playPanel" class="layer panel hidden">
+  <div class="playRow">
+    <button id="undoBtn" class="btn ghost" disabled>戻す</button>
+    <button id="cutBtn" class="btn" disabled>切る</button>
+    <button id="endBtn" class="btn ghost" disabled>終了</button>
+  </div>
+</div>
+
+<div id="resultPanel" class="layer panel hidden">
+  <div id="scoreRow"><span id="scoreNum">0</span><span class="unit">点</span></div>
+  <div id="comment"></div>
+  <div id="stats"></div>
+  <div class="btnRow">
+    <button id="againBtn" class="btn">もう一度</button>
+    <a id="shareBtn" class="btn ghost" href="#" target="_blank" rel="noopener">Xでシェア</a>
+  </div>
+  <button id="toTitle" class="textBtn">タイトルへ</button>
+</div>
+
+<script>
+(() => {
+  // ---------- 定数 ----------
+  const N_VERTS = 720;           // ピザを近似する多角形の頂点数
+  const START_D = 1.25;          // 線の初期位置（ピザ中心からの距離、半径=1）
+  const MAX_D = 1.4;             // 線を動かせる最大距離
+  const CRUMB = 0.005;           // これ未満の面積比は「くず」（ピース数に数えない）
+  const CUT_MS = 380;            // 切る演出の時間
+  const EXPLODE = 0.08;          // 結果画面でピースを離す距離（半径比）
+  const RED_DEV = 1;             // これより大きくずれたピースの%を赤字に
+  const TURN_MS = 5000;          // せっかちモードの1ターンの時間
+  const PARALLEL_DEG = 8;        // ほぼ平行とみなす角度差
+  const GAME_URL = 'https://claude.ai/artifact/BVa9H68EwMMu2VmAvXBAKa';
+  const IS_MOUSE = window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches;
+  const MODES = {
+    normal: { name: 'じっくり', info: '時間無制限' },
+    timed:  { name: 'せっかち', info: '5秒ごとに自動カット' },
+    free:   { name: 'フリー', info: '何回でも切れる' },
+  };
+
+  // 点数ごとのコメント（上から順に判定）
+  const SCORE_COMMENTS = [
+    [100, '定規、隠し持ってる？'],
+    [99.5, 'ピザ屋が弟子入りを志願してきた'],
+    [99, '誤差はチーズが伸びた分'],
+    [98, '職人の手つき'],
+    [97, '今すぐ窯の前に立てる'],
+    [96, '家族からの信頼が厚い'],
+    [95, '父さんな、これで食っていこうと思うんだ'],
+    [94, 'バイトなら即採用'],
+    [93, '誰も文句は言わない'],
+    [92, '1人だけ気づいてる'],
+    [91, '目を細めれば6等分'],
+    [90, 'ギリギリ平和が保たれた'],
+    [88, '選ぶ順番が大事になる'],
+    [86, '一番大きいのは自分用でしょ'],
+    [84, '兄弟げんかの火種'],
+    [82, '最後の1切れで揉める'],
+    [80, 'パーティーなら許される'],
+    [75, '目分量にも限度がある'],
+    [70, '切った人が最後に選ぶルールね'],
+    [60, '6人いたら友情が壊れる'],
+    [50, '包丁の持ち方から始めよう'],
+    [40, 'これは等分ではなく分配'],
+    [30, 'ピザに謝って'],
+    [20, '何を目指して切った？'],
+    [10, '斬新な切り方ですね'],
+    [-1, '真面目にやってる？'],
+  ];
+  const COUNT_COMMENTS = {
+    1: '切った気でいる', 2: 'カップル用', 3: '3人家族向け',
+    4: 'それ、4等分です', 5: '1人分足りない', 7: '7人目は誰？',
+  };
+  const PARALLEL_COMMENT = 'ケーキも切れなさそう';
+  const PARALLEL_GOOD_COMMENT = '平行でもいける派';     // フリーで平行切りなのに90点以上
+  const HANJO_COMMENT = 'はんじょうさん…？';             // フリーで縁の1点から2本
+  // フリーモードでピースが8個以上のとき（上から順に判定）
+  const MANY_COMMENTS = [
+    [100, 'ピザだったもの'],
+    [50, 'もはや粉チーズ'],
+    [30, '一口サイズ'],
+    [20, 'クラス全員に配れる'],
+    [12, '宴会用'],
+    [10, '大家族向け'],
+    [8, 'ちょっと切りすぎ'],
+  ];
+  const LABEL_MAX = 12;          // これを超えたら%を出さない
+  const WHIFF_COMMENT = '包丁がピザに届いてない';
+  // 効果音の豪華さ用（0が最上位）
+  const SOUND_TIERS = [98, 94, 88, 75, -1];
+
+  // ---------- 要素 ----------
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+  const $ = id => document.getElementById(id);
+  const ui = {
+    logo: $('logo'), logoSub: $('logoSub'), turnLabel: $('turnLabel'), hint: $('hint'),
+    timer: $('timer'), timerFill: $('timerFill'), restart: $('restart'), mute: $('mute'),
+    titlePanel: $('titlePanel'), playPanel: $('playPanel'), resultPanel: $('resultPanel'),
+    cutBtn: $('cutBtn'), againBtn: $('againBtn'), shareBtn: $('shareBtn'), toTitle: $('toTitle'),
+    scoreNum: $('scoreNum'), comment: $('comment'), stats: $('stats'),
+    infoNormal: $('infoNormal'), infoTimed: $('infoTimed'), infoFree: $('infoFree'),
+    undoBtn: $('undoBtn'), endBtn: $('endBtn'),
+  };
+
+  // ---------- 保存（この端末だけ） ----------
+  const store = {
+    get(k) { try { return localStorage.getItem('pizza6-' + k); } catch (_) { return null; } },
+    set(k, v) { try { localStorage.setItem('pizza6-' + k, v); } catch (_) {} },
+  };
+  const getBest = m => { const v = parseFloat(store.get('best-' + m)); return isNaN(v) ? null : v; };
+
+  // ---------- 幾何 ----------
+  function circlePoly(n) {
+    const p = [];
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      p.push([Math.cos(a), Math.sin(a)]);
+    }
+    return p;
+  }
+  function area(poly) {
+    let s = 0;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      s += poly[j][0] * poly[i][1] - poly[i][0] * poly[j][1];
+    }
+    return Math.abs(s) / 2;
+  }
+  function centroid(poly) {
+    let a = 0, x = 0, y = 0;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const c = poly[j][0] * poly[i][1] - poly[i][0] * poly[j][1];
+      a += c; x += (poly[j][0] + poly[i][0]) * c; y += (poly[j][1] + poly[i][1]) * c;
+    }
+    if (Math.abs(a) < 1e-12) return [0, 0];
+    return [x / (3 * a), y / (3 * a)];
+  }
+  // 凸多角形を直線 n·v = d で2つに分ける
+  function split(poly, n, d) {
+    const A = [], B = [];
+    const len = poly.length;
+    for (let i = 0; i < len; i++) {
+      const c = poly[i], q = poly[(i + 1) % len];
+      const sc = c[0] * n[0] + c[1] * n[1] - d;
+      const sq = q[0] * n[0] + q[1] * n[1] - d;
+      if (sc >= 0) A.push(c);
+      if (sc <= 0) B.push(c);
+      if ((sc > 0 && sq < 0) || (sc < 0 && sq > 0)) {
+        const t = sc / (sc - sq);
+        const p = [c[0] + (q[0] - c[0]) * t, c[1] + (q[1] - c[1]) * t];
+        A.push(p); B.push(p);
+      }
+    }
+    return [A, B].filter(p => p.length >= 3 && area(p) > 1e-10);
+  }
+  const normalOf = th => [-Math.sin(th), Math.cos(th)];
+  const dirOf = th => [Math.cos(th), Math.sin(th)];
+  const crosses = d => Math.abs(d) < 0.995;
+
+  // ---------- 採点・コメント ----------
+  function evaluate(pieces, total) {
+    const fr = pieces.map(p => area(p) / total).sort((a, b) => b - a);
+    let err = 0;
+    fr.forEach((a, i) => { err += Math.abs(a - (i < 6 ? 1 / 6 : 0)); });
+    for (let i = fr.length; i < 6; i++) err += 1 / 6;   // 6個未満なら足りない分も誤差
+    const real = fr.filter(a => a >= CRUMB);
+    const score = Math.round(Math.max(0, 100 - err * 100) * 10) / 10;
+    return { score, count: real.length, spread: (real[0] - real[real.length - 1]) * 100 };
+  }
+  function allParallel(cs) {
+    const lim = PARALLEL_DEG * Math.PI / 180;
+    for (let i = 0; i < cs.length; i++) for (let j = i + 1; j < cs.length; j++) {
+      let d = Math.abs(cs[i].th - cs[j].th) % Math.PI;
+      if (Math.min(d, Math.PI - d) > lim) return false;
+    }
+    return true;
+  }
+  // すべての線が水平から60°以上傾いている（＝わざわざ縦向きに回した）
+  function allVertical(cs) {
+    return cs.every(c => {
+      const a = ((c.th % Math.PI) + Math.PI) % Math.PI;
+      return Math.min(a, Math.PI - a) >= 60 * Math.PI / 180;
+    });
+  }
+  const isCake = cs => cs.length >= 2 && allParallel(cs) && allVertical(cs);
+  // 2本の直線の交点が、ピザの縁の上にあるか（はんじょうさんの切り方）
+  function isHanjo(cs) {
+    if (cs.length !== 2) return false;
+    const [a, b] = cs;
+    let dth = Math.abs(a.th - b.th) % Math.PI;
+    if (Math.min(dth, Math.PI - dth) < 10 * Math.PI / 180) return false;
+    const n1 = normalOf(a.th), n2 = normalOf(b.th);
+    const det = n1[0] * n2[1] - n1[1] * n2[0];
+    const px = (a.d * n2[1] - n1[1] * b.d) / det;
+    const py = (n1[0] * b.d - a.d * n2[0]) / det;
+    const r = Math.hypot(px, py);
+    return r >= 0.92 && r <= 1.08;
+  }
+  function commentFor(res, cs, whiffs, gm) {
+    if (gm === 'free') {
+      if (isHanjo(cs)) return HANJO_COMMENT;
+      if (cs.length >= 2 && allParallel(cs) && res.score >= 90) return PARALLEL_GOOD_COMMENT;
+      if (isCake(cs)) return PARALLEL_COMMENT;
+      if (res.count >= 8) return MANY_COMMENTS.find(c => res.count >= c[0])[1];
+    } else if (cs.length === 3 && isCake(cs)) {
+      return PARALLEL_COMMENT;
+    }
+    if (whiffs > 0) return WHIFF_COMMENT;
+    if (res.count !== 6 && COUNT_COMMENTS[res.count]) return COUNT_COMMENTS[res.count];
+    return SCORE_COMMENTS.find(c => res.score >= c[0])[1];
+  }
+
+  // ---------- ピザの絵 ----------
+  function rng(seed) {
+    return () => {
+      seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+      let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  let pizzaImg = null, pizzaImgR = 0, pizzaSeed = (Math.random() * 1e9) | 0;
+  function renderPizza(R) {
+    const pad = 4;
+    const size = Math.ceil(2 * R + pad * 2);
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    const g = c.getContext('2d');
+    g.translate(size / 2, size / 2);
+    g.fillStyle = '#E3B271';
+    g.beginPath(); g.arc(0, 0, R, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = 'rgba(160,100,40,.35)'; g.lineWidth = R * 0.012;
+    g.beginPath(); g.arc(0, 0, R * 0.995, 0, Math.PI * 2); g.stroke();
+    g.fillStyle = '#C8553A';
+    g.beginPath(); g.arc(0, 0, R * 0.885, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#F3CB63';
+    g.beginPath(); g.arc(0, 0, R * 0.85, 0, Math.PI * 2); g.fill();
+    const r = rng(pizzaSeed);
+    g.fillStyle = 'rgba(255,236,170,.55)';
+    for (let i = 0; i < 26; i++) {
+      const a = r() * Math.PI * 2, d = Math.sqrt(r()) * R * 0.78;
+      g.beginPath();
+      g.ellipse(Math.cos(a) * d, Math.sin(a) * d, R * (0.04 + r() * 0.07), R * (0.03 + r() * 0.04), r() * Math.PI, 0, Math.PI * 2);
+      g.fill();
+    }
+    const placed = [];
+    function place(rad, maxD, tries = 400) {
+      for (let k = 0; k < tries; k++) {
+        const a = r() * Math.PI * 2, d = Math.sqrt(r()) * maxD;
+        const x = Math.cos(a) * d, y = Math.sin(a) * d;
+        if (placed.every(p => Math.hypot(p[0] - x, p[1] - y) > p[2] + rad + 0.02)) {
+          placed.push([x, y, rad]); return [x, y];
+        }
+      }
+      return null;
+    }
+    for (let i = 0; i < 10; i++) {
+      const p = place(0.115, 0.7);
+      if (!p) continue;
+      const [x, y] = [p[0] * R, p[1] * R], pr = R * 0.115;
+      g.fillStyle = '#B63A2C';
+      g.beginPath(); g.arc(x, y, pr, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = 'rgba(120,30,20,.35)'; g.lineWidth = pr * 0.12;
+      g.beginPath(); g.arc(x, y, pr * 0.92, 0, Math.PI * 2); g.stroke();
+      g.fillStyle = 'rgba(130,30,22,.5)';
+      for (let k = 0; k < 4; k++) {
+        const a = r() * Math.PI * 2, d = r() * pr * 0.6;
+        g.beginPath(); g.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, pr * 0.1, 0, Math.PI * 2); g.fill();
+      }
+    }
+    for (let i = 0; i < 7; i++) {
+      const p = place(0.06, 0.74);
+      if (!p) continue;
+      const [x, y] = [p[0] * R, p[1] * R], rot = r() * Math.PI;
+      g.save(); g.translate(x, y); g.rotate(rot);
+      g.fillStyle = '#4F8A3C';
+      g.beginPath(); g.ellipse(0, 0, R * 0.065, R * 0.034, 0, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = 'rgba(30,70,25,.5)'; g.lineWidth = R * 0.006;
+      g.beginPath(); g.moveTo(-R * 0.05, 0); g.lineTo(R * 0.05, 0); g.stroke();
+      g.restore();
+    }
+    pizzaImg = c; pizzaImgR = R;
+  }
+
+  // ---------- 背景（淡いギンガムチェック） ----------
+  let bgPattern = null, bgCell = 26, bgOff = [0, 0];
+  function makeBg() {
+    const s = Math.round(bgCell * dpr);
+    const c = document.createElement('canvas');
+    c.width = c.height = s * 2;
+    const g = c.getContext('2d');
+    g.fillStyle = '#FAF7F2'; g.fillRect(0, 0, s * 2, s * 2);
+    g.fillStyle = 'rgba(205,185,155,.16)';
+    g.fillRect(0, 0, s, s * 2);
+    g.fillRect(0, 0, s * 2, s);
+    bgPattern = ctx.createPattern(c, 'repeat');
+  }
+  function drawBg() {
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, bgOff[0], bgOff[1]);
+    ctx.fillStyle = bgPattern || '#FAF8F5';
+    ctx.fillRect(-bgOff[0], -bgOff[1], cv.width, cv.height);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    const gr = ctx.createRadialGradient(cv.width / 2, cv.height * 0.45, Math.min(cv.width, cv.height) * 0.3, cv.width / 2, cv.height * 0.45, Math.max(cv.width, cv.height) * 0.8);
+    gr.addColorStop(0, 'rgba(250,247,242,0)');
+    gr.addColorStop(1, 'rgba(120,95,60,.08)');
+    ctx.fillStyle = gr; ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.restore();
+  }
+
+  // ---------- 効果音（Web Audio で合成） ----------
+  let ac = null, noiseBuf = null;
+  let muted = store.get('muted') === '1';
+  function ensureAudio() {
+    try {
+      if (!ac) {
+        ac = new (window.AudioContext || window.webkitAudioContext)();
+        noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
+        const d = noiseBuf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      }
+      if (ac.state === 'suspended') ac.resume();
+    } catch (_) { ac = null; }
+  }
+  function tone(type, f0, f1, t, dur, peak) {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f0, t);
+    if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(ac.destination);
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+  function noise(t, dur, peak, type, f0, f1, q) {
+    const src = ac.createBufferSource(); src.buffer = noiseBuf;
+    const f = ac.createBiquadFilter(); f.type = type; f.Q.value = q;
+    f.frequency.setValueAtTime(f0, t);
+    f.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + 0.03);
+    g.gain.setValueAtTime(peak, t + dur * 0.7);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f).connect(g).connect(ac.destination);
+    src.start(t, Math.random() * 0.5); src.stop(t + dur + 0.05);
+  }
+  const ok = () => ac && !muted;
+  const sfx = {
+    tap() { if (ok()) tone('sine', 520, 780, ac.currentTime, 0.09, 0.18); },
+    tick(last) { if (ok()) tone('sine', last ? 1320 : 990, last ? 1320 : 990, ac.currentTime, 0.07, 0.14); },
+    cut() {
+      if (!ok()) return;
+      const t = ac.currentTime, dur = CUT_MS / 1000;
+      noise(t, dur, 0.32, 'bandpass', 3200, 1400, 1.2);
+      noise(t + 0.02, dur, 0.12, 'highpass', 6000, 4000, 0.7);
+      tone('sine', 150, 55, t + dur - 0.02, 0.16, 0.5);
+      noise(t + dur - 0.02, 0.07, 0.25, 'lowpass', 900, 300, 0.8);
+    },
+    whiff() {
+      if (!ok()) return;
+      const t = ac.currentTime;
+      noise(t, 0.28, 0.22, 'bandpass', 600, 2400, 1.5);
+      tone('triangle', 220, 140, t + 0.12, 0.25, 0.12);
+    },
+    split() { if (ok()) noise(ac.currentTime, 0.45, 0.1, 'lowpass', 1800, 400, 0.6); },
+    score(tier) {
+      if (!ok()) return;
+      const notes = [523.25, 659.25, 783.99, 1046.5, 1318.5];
+      const n = Math.max(1, 5 - tier);
+      const t = ac.currentTime;
+      for (let i = 0; i < n; i++) tone('triangle', notes[i], notes[i], t + i * 0.09, 0.5, 0.16);
+      if (tier === 0) tone('sine', 2093, 2093, t + n * 0.09, 0.8, 0.07);
+    },
+  };
+  const ICON_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11"/></svg>';
+  const ICON_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>';
+  function renderMute() { ui.mute.innerHTML = muted ? ICON_OFF : ICON_ON; }
+
+  // ---------- 状態 ----------
+  const TOTAL = area(circlePoly(N_VERTS));
+  let W = 0, H = 0, dpr = 1;
+  let mode = 'title';            // title / play / cutting / wait / result
+  let gameMode = 'normal';       // normal / timed
+  let history = [];   // フリーモードの「戻す」用
+  let pieces, cuts, whiffs, turn, line, startTime, endTime, result, turnStart = 0, lastTick = 0;
+  let cutAnim = null, explodeStart = 0, whiffAt = -1e9;
+  let jitter = { x: 0, y: 0, s: 1 };       // 1ゲームごとのピザの位置・大きさのズレ
+  const view = { cx: 0, cy: 0, R: 0 };
+  const target = { cx: 0, cy: 0, R: 0 };
+  const isPlayLike = () => mode === 'play' || mode === 'cutting' || mode === 'wait';
+
+  function resetGame() {
+    pieces = [circlePoly(N_VERTS)];
+    cuts = [];
+    history = [];
+    whiffs = 0;
+    turn = 1;
+    resetLine();
+    result = null;
+  }
+  function resetLine() { line = { th: 0, d: START_D }; }
+
+  // ---------- レイアウト ----------
+  function layout() {
+    const top = mode === 'title' ? 130 : 96;
+    const bottom = mode === 'title' ? 262 : mode === 'result' ? 280 : 120;
+    const avail = H - top - bottom;
+    const play = isPlayLike();
+    const below = play ? MAX_D + 0.04 : 1.12;
+    const above = mode === 'result' ? 1.12 : 1.04;
+    let R = Math.max(40, Math.min(W * 0.42, avail / (above + below)));
+    let cx = W / 2;
+    let cy = top + (avail - (above + below) * R) / 2 + above * R;
+    if (play) {
+      R *= jitter.s;
+      cx += jitter.x * W;
+      cy += jitter.y * H;
+      cy = Math.max(top + above * R, Math.min(H - bottom - below * R, cy));
+    }
+    target.R = R; target.cx = cx; target.cy = cy;
+  }
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 3);
+    W = window.innerWidth; H = window.innerHeight;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    layout();
+    if (!view.R) Object.assign(view, target);
+    renderPizza(Math.min(W, H) * 0.5 * dpr);
+    makeBg();
+  }
+  window.addEventListener('resize', resize);
+
+  // ---------- 描画 ----------
+  function piecePath(g, poly, cx, cy, R) {
+    g.beginPath();
+    poly.forEach((p, i) => {
+      const x = cx + p[0] * R, y = cy + p[1] * R;
+      i ? g.lineTo(x, y) : g.moveTo(x, y);
+    });
+    g.closePath();
+  }
+  function drawPizzaPieces(g, cx, cy, R, explode, labels) {
+    const s = R / pizzaImgR;
+    const half = pizzaImg.width / 2;
+    if (explode <= 0) {
+      g.save();
+      g.shadowColor = 'rgba(60,40,20,.14)'; g.shadowBlur = R * 0.12; g.shadowOffsetY = R * 0.03;
+      g.fillStyle = '#E3B271';
+      g.beginPath(); g.arc(cx, cy, R * 0.99, 0, Math.PI * 2); g.fill();
+      g.restore();
+    }
+    const infos = pieces.map(p => {
+      const c = centroid(p);
+      const len = Math.hypot(c[0], c[1]);
+      const sc = Math.min(0.19, EXPLODE * 1.5 / Math.max(len, 1e-6)) * explode;
+      return { p, c, off: [c[0] * sc, c[1] * sc], a: area(p) / TOTAL };
+    });
+    for (const it of infos) {
+      const ox = it.off[0] * R, oy = it.off[1] * R;
+      g.save();
+      piecePath(g, it.p, cx + ox, cy + oy, R);
+      g.clip();
+      g.drawImage(pizzaImg, cx + ox - half * s, cy + oy - half * s, pizzaImg.width * s, pizzaImg.height * s);
+      g.restore();
+    }
+    if (explode <= 0 && cuts.length) {
+      g.save();
+      g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.clip();
+      g.strokeStyle = 'rgba(70,35,10,.6)'; g.lineWidth = Math.max(1.5, R * 0.008); g.lineCap = 'round';
+      for (const ct of cuts) drawChord(g, ct, cx, cy, R);
+      g.restore();
+    }
+    const realCount = infos.filter(it => it.a >= CRUMB).length;
+    if (labels && realCount <= LABEL_MAX) {
+      const fs = Math.max(11, R * 0.085);
+      g.font = `700 ${fs}px -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif`;
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      for (const it of infos) {
+        if (it.a < CRUMB) continue;
+        const x = cx + (it.c[0] + it.off[0]) * R, y = cy + (it.c[1] + it.off[1]) * R;
+        const txt = (it.a * 100).toFixed(1) + '%';
+        const tw = g.measureText(txt).width + fs * 0.9, th = fs * 1.55;
+        g.fillStyle = 'rgba(255,255,255,.92)';
+        roundRect(g, x - tw / 2, y - th / 2, tw, th, th / 2); g.fill();
+        g.fillStyle = Math.abs(it.a - 1 / 6) * 100 <= RED_DEV ? '#1F1F1F' : '#B3362A';
+        g.fillText(txt, x, y + fs * 0.03);
+      }
+    }
+  }
+  function roundRect(g, x, y, w, h, r) {
+    g.beginPath();
+    g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+    g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+  }
+  function chordEnds(ln) {
+    const n = normalOf(ln.th), u = dirOf(ln.th);
+    const h = Math.sqrt(Math.max(0, 1 - ln.d * ln.d));
+    const m = [n[0] * ln.d, n[1] * ln.d];
+    return [[m[0] - u[0] * h, m[1] - u[1] * h], [m[0] + u[0] * h, m[1] + u[1] * h]];
+  }
+  function drawChord(g, ln, cx, cy, R) {
+    const [a, b] = chordEnds(ln);
+    g.beginPath(); g.moveTo(cx + a[0] * R, cy + a[1] * R); g.lineTo(cx + b[0] * R, cy + b[1] * R); g.stroke();
+  }
+  function drawGuide(g, cx, cy, R, urgent) {
+    const n = normalOf(line.th), u = dirOf(line.th);
+    const mx = cx + n[0] * line.d * R, my = cy + n[1] * line.d * R;
+    const L = Math.hypot(W, H) * 2;
+    const col = urgent ? '179,54,42' : '47,111,237';
+    g.save();
+    g.lineCap = 'round';
+    g.strokeStyle = `rgba(${col},.16)`; g.lineWidth = 10;
+    g.beginPath(); g.moveTo(mx - u[0] * L, my - u[1] * L); g.lineTo(mx + u[0] * L, my + u[1] * L); g.stroke();
+    g.strokeStyle = `rgb(${col})`; g.lineWidth = 2; g.setLineDash([10, 7]);
+    g.beginPath(); g.moveTo(mx - u[0] * L, my - u[1] * L); g.lineTo(mx + u[0] * L, my + u[1] * L); g.stroke();
+    g.restore();
+  }
+  function drawWhiff(now) {
+    const t = (now - whiffAt) / 800;
+    if (t < 0 || t > 1) return;
+    ctx.save();
+    ctx.globalAlpha = 1 - t * t;
+    ctx.fillStyle = '#B3362A';
+    ctx.font = `800 ${Math.max(22, view.R * 0.2)}px -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('空振り', view.cx, view.cy - t * 20);
+    ctx.restore();
+  }
+
+  function frame(now) {
+    for (const k of ['cx', 'cy', 'R']) view[k] += (target[k] - view[k]) * 0.18;
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawBg();
+
+    let explode = 0, labels = false;
+    if (mode === 'result') {
+      const t = Math.min(1, (now - explodeStart) / 650);
+      explode = 1 - Math.pow(1 - t, 3);
+      labels = t > 0.55;
+    }
+    if (mode === 'title') {
+      // タイトルではピザがゆっくり回る
+      ctx.save();
+      ctx.translate(view.cx, view.cy); ctx.rotate(now * 0.00012); ctx.translate(-view.cx, -view.cy);
+      drawPizzaPieces(ctx, view.cx, view.cy, view.R, 0, false);
+      ctx.restore();
+    } else {
+      drawPizzaPieces(ctx, view.cx, view.cy, view.R, explode, labels);
+    }
+
+    // せっかちモードの残り時間
+    let remain = Infinity;
+    if (gameMode === 'timed' && mode === 'play') {
+      remain = TURN_MS - (now - turnStart);
+      const r = Math.max(0, remain / TURN_MS);
+      ui.timerFill.style.transform = `scaleX(${r})`;
+      ui.timerFill.style.background = remain < 1500 ? '#B3362A' : '#1F1F1F';
+      const sec = Math.ceil(remain / 1000);
+      if (sec <= 3 && sec >= 1 && sec !== lastTick) { lastTick = sec; sfx.tick(sec === 1); }
+      if (remain <= 0) autoCut();
+    }
+
+    if (mode === 'play') drawGuide(ctx, view.cx, view.cy, view.R, remain < 1500);
+    drawWhiff(now);
+
+    if (mode === 'cutting' && cutAnim) {
+      const t = Math.min(1, (now - cutAnim.t0) / CUT_MS);
+      const e = 1 - Math.pow(1 - t, 2);
+      const [a, b] = chordEnds(cutAnim.line);
+      const R = view.R, cx = view.cx, cy = view.cy;
+      const ex = a[0] + (b[0] - a[0]) * e, ey = a[1] + (b[1] - a[1]) * e;
+      ctx.save();
+      ctx.strokeStyle = '#1F1F1F'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(cx + a[0] * R, cy + a[1] * R); ctx.lineTo(cx + ex * R, cy + ey * R); ctx.stroke();
+      ctx.fillStyle = '#1F1F1F';
+      ctx.beginPath(); ctx.arc(cx + ex * R, cy + ey * R, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      if (t >= 1) finishCut();
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- 操作 ----------
+  const ptrs = new Map();
+  const toN = (x, y) => [(x - view.cx) / view.R, (y - view.cy) / view.R];
+  const wrapAngle = a => Math.atan2(Math.sin(a), Math.cos(a));
+  const clampD = d => Math.max(-MAX_D, Math.min(MAX_D, d));
+
+  // 線上の点を m0 まわりに dth 回して、m0→m1 の分だけ動かす
+  function rigid(m0, m1, dth) {
+    const n = normalOf(line.th);
+    const p = [view.cx + n[0] * line.d * view.R, view.cy + n[1] * line.d * view.R];
+    const rx = p[0] - m0[0], ry = p[1] - m0[1];
+    const c = Math.cos(dth), s = Math.sin(dth);
+    const p2 = [m0[0] + rx * c - ry * s + (m1[0] - m0[0]), m0[1] + rx * s + ry * c + (m1[1] - m0[1])];
+    line.th = wrapAngle(line.th + dth);
+    const q = toN(p2[0], p2[1]);
+    const n2 = normalOf(line.th);
+    line.d = clampD(q[0] * n2[0] + q[1] * n2[1]);
+  }
+  function applyMove(id, nx, ny) {
+    const prev = ptrs.get(id);
+    if (!prev) return;
+    if (ptrs.size >= 2) {
+      let o = null;
+      for (const [k, v] of ptrs) if (k !== id) { o = v; break; }
+      const m0 = [(prev.x + o.x) / 2, (prev.y + o.y) / 2];
+      const m1 = [(nx + o.x) / 2, (ny + o.y) / 2];
+      const a0 = Math.atan2(prev.y - o.y, prev.x - o.x);
+      const a1 = Math.atan2(ny - o.y, nx - o.x);
+      rigid(m0, m1, wrapAngle(a1 - a0));
+    } else {
+      const n = normalOf(line.th);
+      const dd = ((nx - prev.x) * n[0] + (ny - prev.y) * n[1]) / view.R;
+      line.d = clampD(line.d + dd);
+    }
+    prev.x = nx; prev.y = ny;
+    updateCutBtn();
+  }
+
+  cv.addEventListener('pointerdown', e => {
+    if (mode !== 'play') return;
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+  });
+  cv.addEventListener('pointermove', e => {
+    if (mode !== 'play' || !ptrs.has(e.pointerId)) return;
+    e.preventDefault();
+    applyMove(e.pointerId, e.clientX, e.clientY);
+  });
+  cv.addEventListener('wheel', e => {
+    if (mode !== 'play') return;
+    e.preventDefault();
+    const dy = Math.max(-60, Math.min(60, e.deltaY));
+    // カーソルから線に下ろした足を軸に回す
+    const n = normalOf(line.th);
+    const dist = (e.clientX - view.cx) * n[0] + (e.clientY - view.cy) * n[1] - line.d * view.R;
+    const m = [e.clientX - n[0] * dist, e.clientY - n[1] * dist];
+    rigid(m, m, dy * 0.0025);
+    updateCutBtn();
+  }, { passive: false });
+  const up = e => { ptrs.delete(e.pointerId); };
+  cv.addEventListener('pointerup', up);
+  cv.addEventListener('pointercancel', up);
+  cv.addEventListener('lostpointercapture', up);
+  document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+  document.addEventListener('gesturestart', e => e.preventDefault());
+  document.addEventListener('dblclick', e => e.preventDefault());
+
+  function updateCutBtn() {
+    ui.cutBtn.disabled = !(mode === 'play' && crosses(line.d));
+    ui.undoBtn.disabled = !(mode === 'play' && cuts && cuts.length > 0);
+    ui.endBtn.disabled = !(mode === 'play' && cuts && cuts.length > 0);
+  }
+
+  // ---------- 進行 ----------
+  function setMode(m) {
+    mode = m;
+    const isTitle = m === 'title', isPlay = isPlayLike(), isResult = m === 'result';
+    ui.logo.classList.toggle('hidden', !isTitle);
+    ui.logoSub.classList.toggle('hidden', !isTitle);
+    ui.titlePanel.classList.toggle('hidden', !isTitle);
+    ui.turnLabel.classList.toggle('hidden', isTitle);
+    ui.hint.classList.toggle('hidden', !isPlay);
+    ui.timer.classList.toggle('hidden', !(isPlay && gameMode === 'timed'));
+    ui.restart.classList.toggle('hidden', !isPlay);
+    ui.playPanel.classList.toggle('hidden', !isPlay);
+    ui.resultPanel.classList.toggle('hidden', !isResult);
+    if (!isResult) ui.resultPanel.classList.remove('show');
+    ui.playPanel.classList.toggle('free', gameMode === 'free');
+    if (isPlay) {
+      ui.turnLabel.innerHTML = gameMode === 'free'
+        ? `${cuts.length + 1}回目`
+        : `${turn}ターン目<span class="of">/ 3</span>`;
+    }
+    if (isResult) ui.turnLabel.textContent = '結果';
+    if (isTitle) renderTitleInfo();
+    layout();
+    updateCutBtn();
+  }
+  function renderTitleInfo() {
+    for (const [m, el] of [['normal', ui.infoNormal], ['timed', ui.infoTimed], ['free', ui.infoFree]]) {
+      const b = getBest(m);
+      el.textContent = MODES[m].info + (b !== null ? `　ベスト ${b.toFixed(1)}点` : '');
+    }
+  }
+
+  function startGame(m) {
+    if (m) gameMode = m;
+    ensureAudio();
+    sfx.tap();
+    // 毎回、模様・位置・大きさ・背景の柄をランダムに
+    pizzaSeed = (Math.random() * 1e9) | 0;
+    renderPizza(Math.min(W, H) * 0.5 * dpr);
+    jitter = { x: (Math.random() * 2 - 1) * 0.06, y: (Math.random() * 2 - 1) * 0.04, s: 0.9 + Math.random() * 0.1 };
+    const cell = Math.round(bgCell * dpr);
+    bgOff = [Math.random() * cell * 2, Math.random() * cell * 2];
+    resetGame();
+    ptrs.clear();
+    startTime = performance.now();
+    beginTurn();
+  }
+  function beginTurn() {
+    turnStart = performance.now();
+    lastTick = 0;
+    setMode('play');
+  }
+
+  function doCut() {
+    if (mode !== 'play' || !crosses(line.d)) return;
+    cutAnim = { line: { ...line }, t0: performance.now() };
+    ptrs.clear();
+    try { navigator.vibrate && navigator.vibrate(12); } catch (_) {}
+    sfx.cut();
+    setMode('cutting');
+  }
+  function autoCut() {
+    if (mode !== 'play') return;
+    if (crosses(line.d)) { doCut(); return; }
+    // 線がピザに届いていない → 空振り（1回分を消費）
+    whiffs++;
+    whiffAt = performance.now();
+    ptrs.clear();
+    sfx.whiff();
+    mode = 'wait';
+    ui.cutBtn.disabled = true;
+    setTimeout(afterTurn, 650);
+  }
+  function finishCut() {
+    const ln = cutAnim.line;
+    cutAnim = null;
+    history.push(pieces);
+    const n = normalOf(ln.th);
+    const next = [];
+    for (const p of pieces) next.push(...split(p, n, ln.d));
+    pieces = next;
+    cuts.push(ln);
+    afterTurn();
+  }
+  function afterTurn() {
+    if (gameMode === 'free') { resetLine(); beginTurn(); return; }
+    if (turn >= 3) {
+      endTime = performance.now();
+      mode = 'wait';
+      ui.cutBtn.disabled = true;
+      setTimeout(showResult, 350);
+      return;
+    }
+    turn++;
+    resetLine();
+    beginTurn();
+  }
+
+  function showResult() {
+    result = evaluate(pieces, TOTAL);
+    const comment = commentFor(result, cuts, whiffs, gameMode);
+    const sec = (endTime - startTime) / 1000;
+    const prevBest = getBest(gameMode);
+    const prevCuts = parseInt(store.get('bestcuts-' + gameMode) || '999', 10);
+    // 同点なら切った回数が少ない方を上に（フリーモード用）
+    const isBest = prevBest === null || result.score > prevBest ||
+      (gameMode === 'free' && result.score === prevBest && cuts.length < prevCuts);
+    if (isBest) { store.set('best-' + gameMode, String(result.score)); store.set('bestcuts-' + gameMode, String(cuts.length)); }
+
+    ui.scoreNum.textContent = result.score.toFixed(1);
+    ui.comment.textContent = comment;
+    const parts = gameMode === 'free'
+      ? [`${cuts.length}回で切った`, `ピース ${result.count}個`, `最大と最小の差 ${result.spread.toFixed(1)}%`]
+      : [`ピース ${result.count}個`, `最大と最小の差 ${result.spread.toFixed(1)}%`, `${sec.toFixed(1)}秒`];
+    ui.stats.innerHTML = parts.join('　・　') + (isBest && prevBest !== null ? '<br><span class="best">自己ベスト更新</span>' : '');
+    const modeLabel = gameMode === 'free' ? `フリー・${cuts.length}回` : MODES[gameMode].name;
+    const text = `🍕 ピザ六等分（${modeLabel}）${result.score.toFixed(1)}点\n「${comment}」\n#ピザ六等分\n${GAME_URL}`;
+    ui.shareBtn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text);
+
+    setMode('result');
+    explodeStart = performance.now();
+    sfx.split();
+    const tier = SOUND_TIERS.findIndex(t => result.score >= t);
+    setTimeout(() => sfx.score(tier), 520);
+    setTimeout(() => ui.resultPanel.classList.add('show'), 450);
+  }
+
+  function undo() {
+    if (mode !== 'play' || gameMode !== 'free' || !cuts.length) return;
+    pieces = history.pop();
+    cuts.pop();
+    sfx.tap();
+    resetLine();
+    setMode('play');
+  }
+  function endFree() {
+    if (mode !== 'play' || gameMode !== 'free' || !cuts.length) return;
+    endTime = performance.now();
+    mode = 'wait';
+    updateCutBtn();
+    sfx.tap();
+    setTimeout(showResult, 200);
+  }
+
+  function toTitle() {
+    sfx.tap();
+    resetGame();
+    jitter = { x: 0, y: 0, s: 1 };
+    setMode('title');
+  }
+
+  document.querySelectorAll('.modeBtn').forEach(b => b.addEventListener('click', () => startGame(b.dataset.mode)));
+  ui.cutBtn.addEventListener('click', doCut);
+  ui.undoBtn.addEventListener('click', undo);
+  ui.endBtn.addEventListener('click', endFree);
+  ui.againBtn.addEventListener('click', () => startGame());
+  ui.restart.addEventListener('click', () => startGame());
+  ui.toTitle.addEventListener('click', toTitle);
+  ui.mute.addEventListener('click', () => {
+    muted = !muted;
+    store.set('muted', muted ? '1' : '0');
+    renderMute();
+    if (!muted) { ensureAudio(); sfx.tap(); }
+  });
+  if (IS_MOUSE) ui.hint.textContent = 'ドラッグで動かす　ホイールで回す';
+  renderMute();
+
+  // 検証用
+  window.__pizza = {
+    get state() { return { mode, gameMode, turn, line, pieces, cuts, whiffs, jitter, view: { ...target } }; },
+    setLine(th, d) { line.th = th; line.d = d; updateCutBtn(); },
+    commentFor, evaluate, isHanjo, SCORE_COMMENTS,
+  };
+
+  resetGame();
+  resize();
+  setMode('title');
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
