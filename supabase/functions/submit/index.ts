@@ -1,5 +1,6 @@
 // ピザ六等分 ランキング登録（Supabase Edge Function）
 // 受け取るのは「切った線」。点数はここで計算し直して保存する（送られてきた点数は信用しない）。
+// ひとり（ブラウザごとのID）・モードごとに1件。自己ベストのときだけ記録を更新する。
 // 配置: supabase functions deploy submit --no-verify-jwt
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
 
@@ -123,22 +124,51 @@ Deno.serve(async req => {
   if (mode === 'timed' && lines.length + whiffs !== 3) return bad('記録が正しくありません');
   if (mode === 'free' && (lines.length > MAX_CUTS || whiffs !== 0)) return bad('記録が正しくありません');
 
+  const playerId = String(body?.playerId ?? '');
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(playerId)) return bad('記録が正しくありません');
+
   // ---- 点数を計算し直す ----
   const score = scoreOf(lines);
   const cuts = lines.length;
   const pending = score >= PENDING_SCORE || (mode !== 'free' && timeMs < PENDING_FAST_MS);
+  // 並び順の2番目（同点のとき小さい方が上）
+  const tieCol = mode === 'free' ? 'cuts' : 'time_ms';
+  const tieVal = mode === 'free' ? cuts : timeMs;
 
-  const { data, error } = await db.from('scores')
-    .insert({ mode, name, score, cuts, time_ms: timeMs, lines, approved: !pending })
-    .select('id, created_at').single();
-  if (error) return json({ error: '保存できませんでした' }, 500);
+  // ---- ひとり1件：同じ人・同じモードの記録があれば、良いときだけ更新 ----
+  const { data: old, error: e1 } = await db.from('scores')
+    .select('id, score, cuts, time_ms, approved, created_at')
+    .eq('player_id', playerId).eq('mode', mode).maybeSingle();
+  if (e1) return json({ error: '保存できませんでした' }, 500);
 
-  if (pending) return json({ id: data.id, score, pending: true });
+  let row: { id: number; score: number; tie: number; approved: boolean; created_at: string };
+  let updated: boolean;
+  const oldScore = old ? Number(old.score) : -1;
+  const oldTie = old ? (mode === 'free' ? old.cuts : old.time_ms) : 0;
+  if (!old || score > oldScore || (score === oldScore && tieVal < oldTie)) {
+    const rec = { mode, name, score, cuts, time_ms: timeMs, lines, approved: !pending, player_id: playerId,
+      created_at: new Date().toISOString() };
+    const q = old
+      ? db.from('scores').update(rec).eq('id', old.id)
+      : db.from('scores').insert(rec);
+    const { data, error } = await q.select('id, created_at').single();
+    if (error) return json({ error: '保存できませんでした' }, 500);
+    row = { id: data.id, score, tie: tieVal, approved: !pending, created_at: data.created_at };
+    updated = true;
+  } else {
+    // 自己ベストではない：記録はそのまま、名前だけ最新にする
+    const { error } = await db.from('scores').update({ name }).eq('id', old.id);
+    if (error) return json({ error: '保存できませんでした' }, 500);
+    row = { id: old.id, score: oldScore, tie: oldTie, approved: old.approved, created_at: old.created_at };
+    updated = false;
+  }
+
+  const base = { id: row.id, score, best: row.score, updated };
+  if (!row.approved) return json({ ...base, pending: true });
 
   // ---- 順位（自分より上の件数 + 1） ----
-  const tie = mode === 'free' ? `cuts.lt.${cuts}` : `time_ms.lt.${timeMs}`;
-  const tieEq = mode === 'free' ? `cuts.eq.${cuts}` : `time_ms.eq.${timeMs}`;
-  const better = `score.gt.${score},and(score.eq.${score},${tie}),and(score.eq.${score},${tieEq},id.lt.${data.id})`;
+  const better = `score.gt.${row.score},and(score.eq.${row.score},${tieCol}.lt.${row.tie}),` +
+    `and(score.eq.${row.score},${tieCol}.eq.${row.tie},created_at.lt."${row.created_at}")`;
   const countAbove = async (since?: string) => {
     let q = db.from('scores').select('id', { count: 'exact', head: true })
       .eq('mode', mode).eq('approved', true).or(better);
@@ -146,6 +176,8 @@ Deno.serve(async req => {
     const { count } = await q;
     return (count ?? 0) + 1;
   };
-  const [rankAll, rankToday] = await Promise.all([countAbove(), countAbove(jstDayStartISO())]);
-  return json({ id: data.id, score, pending: false, rankAll, rankToday });
+  const today = jstDayStartISO();
+  const isToday = new Date(row.created_at).getTime() >= new Date(today).getTime();
+  const [rankAll, rankToday] = await Promise.all([countAbove(), isToday ? countAbove(today) : Promise.resolve(null)]);
+  return json({ ...base, pending: false, rankAll, rankToday });
 });

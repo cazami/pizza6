@@ -2,6 +2,13 @@
 
 プロジェクト: https://bxfgjfeaevvmafjfonce.supabase.co
 
+## 更新：ランキングを「ひとり1件」にする（2026-11 追加）
+すでに 1〜2 を済ませている場合は、これだけ行う。
+1. **SQL Editor** に [`migrate-002-one-per-player.sql`](migrate-002-one-per-player.sql) の中身を貼り付けて **Run**
+2. **Edge Functions** → `submit` → **Code** を開き、中身を [`functions/submit/index.ts`](functions/submit/index.ts) の最新に貼り替えて **Deploy**（JWT の検証はオフのまま）
+
+必ず 1 → 2 の順で。逆にすると、新しいプログラムが存在しない列を使おうとして登録が失敗します。
+
 ## 1. テーブルを作る（1回だけ）
 1. Supabase の管理画面で、左メニューの **SQL Editor** を開く
 2. [`schema.sql`](schema.sql) の中身をすべて貼り付けて **Run**

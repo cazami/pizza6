@@ -9,11 +9,13 @@ create table if not exists public.scores (
   cuts       int         not null,
   time_ms    int         not null,
   lines      jsonb       not null,               -- 切った線 [[角度, 距離], ...]（点数の検算用）
+  player_id  uuid,                                -- ブラウザごとのランダムなID（ひとり1件にするため。非公開）
   approved   boolean     not null default true,  -- false = 保留（管理画面で true にすると表示される）
   created_at timestamptz not null default now()
 );
 
 create index if not exists scores_rank_idx on public.scores (mode, approved, score desc, created_at);
+create unique index if not exists scores_player_mode_uniq on public.scores (player_id, mode);
 
 -- 誰でも読めるのは「承認済み」の記録だけ。書き込みは Edge Function（サーバー側）からのみ
 alter table public.scores enable row level security;

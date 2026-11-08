@@ -4,6 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>ピザ六等分</title>
+<meta name="description" content="ピザを直線で3回切って、なるべく正確に6等分するゲーム。あなたは何点？">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://cazami.github.io/pizza6/">
+<meta property="og:title" content="ピザ六等分">
+<meta property="og:description" content="ピザを直線で3回切って、なるべく正確に6等分するゲーム。あなたは何点？">
+<meta property="og:image" content="https://cazami.github.io/pizza6/ogp.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="ja_JP">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="ピザ六等分">
+<meta name="twitter:description" content="ピザを直線で3回切って、なるべく正確に6等分するゲーム。あなたは何点？">
+<meta name="twitter:image" content="https://cazami.github.io/pizza6/ogp.png">
 <style>
   :root {
     --bg: #FAF8F5;
@@ -59,7 +72,7 @@
     background: #fff; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,.12);
   }
   #modalTitle { font-size: 16px; font-weight: 700; }
-  #modalText { margin-top: 6px; font-size: 13px; color: var(--sub); line-height: 1.6; }
+  #modalText { margin-top: 6px; font-size: 13px; color: var(--sub); line-height: 1.6; white-space: pre-line; }
   #modalText:empty { display: none; }
   #modalInput {
     display: block; width: 100%; margin-top: 14px; height: 46px; padding: 0 14px;
@@ -99,7 +112,7 @@
 
   /* 結果画面のランキング登録 */
   #regBtn { width: 100%; max-width: 440px; margin: 0 auto 10px; display: flex; height: 46px; font-size: 15px; }
-  #regDone { margin: 0 auto 10px; font-size: 13px; font-weight: 700; }
+  #regDone { margin: 0 auto 10px; font-size: 13px; font-weight: 700; line-height: 1.6; white-space: pre-line; }
   #regDone button { border: 0; background: none; font: inherit; font-size: 13px; color: var(--sub); text-decoration: underline; padding: 4px 6px; }
 
   .panel { bottom: 0; padding: 0 24px calc(env(safe-area-inset-bottom) + 22px); }
@@ -892,12 +905,9 @@
     const n2 = normalOf(line.th);
     line.d = clampD(q[0] * n2[0] + q[1] * n2[1]);
   }
-  // 精密操作：ゆっくり動かしたときは動きを小さくする（速く動かせば等倍）
-  const lerp = (a, b, t) => a + (b - a) * Math.max(0, Math.min(1, t));
-  function applyMove(id, nx, ny, ts) {
+  function applyMove(id, nx, ny) {
     const prev = ptrs.get(id);
     if (!prev) return;
-    const dt = Math.max(1, Math.min(100, ts - prev.t));
     if (ptrs.size >= 2) {
       let o = null;
       for (const [k, v] of ptrs) if (k !== id) { o = v; break; }
@@ -905,31 +915,26 @@
       const m1 = [(nx + o.x) / 2, (ny + o.y) / 2];
       const a0 = Math.atan2(prev.y - o.y, prev.x - o.x);
       const a1 = Math.atan2(ny - o.y, nx - o.x);
-      const dth = wrapAngle(a1 - a0);
-      // 回転の速さ（rad/ms）でゲインを決める
-      prev.g = lerp(prev.g, lerp(0.4, 1, (Math.abs(dth) / dt - 0.0004) / 0.003), 0.35);
-      rigid(m0, m1, dth * prev.g);
+      rigid(m0, m1, wrapAngle(a1 - a0));
     } else {
       const n = normalOf(line.th);
-      const dpx = (nx - prev.x) * n[0] + (ny - prev.y) * n[1];
-      // 移動の速さ（px/ms）でゲインを決める
-      prev.g = lerp(prev.g, lerp(0.35, 1, (Math.abs(dpx) / dt - 0.05) / 0.55), 0.35);
-      line.d = clampD(line.d + dpx * prev.g / view.R);
+      const dd = ((nx - prev.x) * n[0] + (ny - prev.y) * n[1]) / view.R;
+      line.d = clampD(line.d + dd);
     }
-    prev.x = nx; prev.y = ny; prev.t = ts;
+    prev.x = nx; prev.y = ny;
     updateCutBtn();
   }
 
   cv.addEventListener('pointerdown', e => {
     if (mode !== 'play') return;
-    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, t: e.timeStamp, g: 1 });
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
     try { cv.setPointerCapture(e.pointerId); } catch (_) {}
     hideGuide();
   });
   cv.addEventListener('pointermove', e => {
     if (mode !== 'play' || !ptrs.has(e.pointerId)) return;
     e.preventDefault();
-    applyMove(e.pointerId, e.clientX, e.clientY, e.timeStamp);
+    applyMove(e.pointerId, e.clientX, e.clientY);
   });
   cv.addEventListener('wheel', e => {
     if (mode !== 'play') return;
@@ -1227,6 +1232,17 @@
     if (NG_WORDS.some(w => k.includes(w))) return 'その名前は使えません';
     return '';
   }
+  // ブラウザごとのランダムなID（ランキングを「ひとり1件」にするため）。外からは見えない
+  function playerId() {
+    let id = store.get('pid');
+    if (!id || !/^[0-9a-f-]{36}$/i.test(id)) {
+      id = (crypto.randomUUID && crypto.randomUUID()) ||
+        '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, c =>
+          (c ^ (crypto.getRandomValues(new Uint8Array(1))[0] & 15) >> (c / 4)).toString(16));
+      store.set('pid', id);
+    }
+    return id;
+  }
   // 日本時間の今日0時（UTC の ISO 文字列）
   function jstDayStartISO() {
     const d = new Date(Date.now() + 9 * 3600e3);
@@ -1285,7 +1301,7 @@
     const lp = lastPlay;
     showModal({
       title: 'ランキングに登録',
-      text: `${MODES[lp.mode].name}　${lp.score.toFixed(2)}点　（名前は${NAME_MAX}文字まで）`,
+      text: `${MODES[lp.mode].name}　${lp.score.toFixed(2)}点\n残るのは自己ベストの1件だけです\n名前は${NAME_MAX}文字まで`,
       input: store.get('name') || '',
       yes: '登録', no: 'やめる',
       onYes: async raw => {
@@ -1297,7 +1313,7 @@
           const r = await fetch(`${SB_URL}/functions/v1/submit`, {
             method: 'POST',
             headers: { apikey: SB_KEY, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ mode: lp.mode, name, lines: lp.lines, whiffs: lp.whiffs, timeMs: lp.timeMs }),
+            body: JSON.stringify({ mode: lp.mode, name, lines: lp.lines, whiffs: lp.whiffs, timeMs: lp.timeMs, playerId: playerId() }),
           });
           res = await r.json().catch(() => ({}));
           if (!r.ok) { ui.modalErr.textContent = res.error || '登録できませんでした'; return false; }
@@ -1316,9 +1332,15 @@
   function showRegistered(res) {
     ui.regBtn.classList.add('hidden');
     ui.regDone.classList.remove('hidden');
-    ui.regDone.textContent = res.pending
-      ? '登録しました（確認後に表示されます）'
-      : `登録しました　歴代 ${res.rankAll}位・今日 ${res.rankToday}位`;
+    const ranks = res.rankToday ? `歴代 ${res.rankAll}位・今日 ${res.rankToday}位` : `歴代 ${res.rankAll}位`;
+    if (res.updated === false) {
+      // 自己ベストではない：記録はそのまま（名前だけ更新）
+      ui.regDone.textContent = res.pending
+        ? `自己ベスト（${Number(res.best).toFixed(2)}点）ではないため更新されません`
+        : `自己ベストではないため更新されません\n現在 ${ranks}`;
+    } else {
+      ui.regDone.textContent = res.pending ? '登録しました（確認後に表示されます）' : `登録しました　${ranks}`;
+    }
     const b = document.createElement('button');
     b.textContent = '見る';
     b.addEventListener('click', () => { sfx.tap(); openRank(lastPlay.mode, 'today'); });
